@@ -66,7 +66,7 @@ lune run cli/Init.luau dump Test/sample.rbxl
 
 ## VS Code extension
 
-The extension lives in [`Extension/lupa`](Extension/lupa). It opens Roblox files as a read-only virtual text document and runs `lupa dump` to show the YAML output in the normal editor.
+The extension lives in [`Extension/lupa`](Extension/lupa). It opens Roblox files as a read-only virtual text document and runs `lupa dump` to show the YAML output in the normal editor. It also configures git textconv so Source Control diffs and **Lupa: Compare Active File With...** show side-by-side YAML instead of binary.
 
 ```powershell
 cd Extension/lupa

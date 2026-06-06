@@ -82,11 +82,26 @@ lune build Out/Bundle.luau -o lupa.exe
 | `lupa.dumpFormat` | `yaml` | `yaml` or `tree` output format |
 | `lupa.maxDepth` | `null` | Optional depth limit for large files |
 | `lupa.includeFullProperties` | `false` | Pass `--full` to include default properties |
+| `lupa.setupGitDiff` | `true` | Configure git textconv for YAML diffs in Source Control |
+| `lupa.updateGitAttributes` | `true` | Add `diff=lupa` lines to `.gitattributes` when missing |
 
 ## Commands
 
 - **Lupa: Refresh** — re-run `lupa dump` for the open file
 - **Lupa: Copy Dump Output** — copy the current dump to the clipboard
+- **Lupa: Compare Active File With...** — side-by-side YAML diff (use instead of the built-in compare for `.rbxm` files)
+- **Lupa: Select for Compare** / **Lupa: Compare with Selected** — explorer compare workflow
+- **Lupa: Compare with...** — pick a second Roblox file to diff against
+
+## Diffs
+
+Roblox files are binary. **Do not** use `workbench.editorAssociations` with `lupa.roblox` anywhere — it breaks diffs. The extension removes these automatically on activate.
+
+**Git changes (recommended):** In Source Control, **right-click** a changed `.rbxm` → **Lupa: Open Git Changes**. This opens a side-by-side YAML diff (HEAD vs working tree) via the extension.
+
+**Manual compare:** Command Palette → **Lupa: Compare Active File With...**
+
+**Terminal git diff:** Lupa configures `scripts/lupa-textconv.cmd` as the git `textconv` driver. After extension activation, `git diff` on `.rbxm` files should also show YAML.
 
 ## How it works
 

@@ -1,0 +1,5 @@
+# Lupa: diff Roblox files as YAML text dumps (requires git config diff.lupa.textconv)
+*.rbxl diff=lupa
+*.rbxlx diff=lupa
+*.rbxm diff=lupa
+*.rbxmx diff=lupa

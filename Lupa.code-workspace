@@ -5,14 +5,6 @@
 			"path": "."
 		}
 	],
-	"settings": {
-		"workbench.editorAssociations": {
-			"*.rbxl": "lupa.roblox",
-			"*.rbxlx": "lupa.roblox",
-			"*.rbxm": "lupa.roblox",
-			"*.rbxmx": "lupa.roblox"
-		}
-	},
 	"tasks": {
 		"version": "2.0.0",
 		"tasks": [
