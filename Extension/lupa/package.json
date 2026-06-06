@@ -1,0 +1,159 @@
+{
+  "name": "lupa",
+  "displayName": "Lupa",
+  "description": "Human-readable viewer for Roblox place and model files.",
+  "version": "0.0.1",
+  "publisher": "lupa",
+  "license": "MPL-2.0",
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configurationDefaults": {
+      "workbench.editorAssociations": {
+        "*.rbxl": "lupa.roblox",
+        "*.rbxlx": "lupa.roblox",
+        "*.rbxm": "lupa.roblox",
+        "*.rbxmx": "lupa.roblox"
+      }
+    },
+    "customEditors": [
+      {
+        "viewType": "lupa.roblox",
+        "displayName": "Lupa",
+        "selector": [
+          {
+            "filenamePattern": "*.rbxl"
+          },
+          {
+            "filenamePattern": "*.rbxlx"
+          },
+          {
+            "filenamePattern": "*.rbxm"
+          },
+          {
+            "filenamePattern": "*.rbxmx"
+          },
+          {
+            "filenamePattern": "**/*.rbxl"
+          },
+          {
+            "filenamePattern": "**/*.rbxlx"
+          },
+          {
+            "filenamePattern": "**/*.rbxm"
+          },
+          {
+            "filenamePattern": "**/*.rbxmx"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "lupa.refresh",
+        "title": "Lupa: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "lupa.copyDump",
+        "title": "Lupa: Copy Dump Output"
+      },
+      {
+        "command": "lupa.openWith",
+        "title": "Lupa: Open with Lupa Editor"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "lupa.refresh",
+          "when": "lupa.dumpActive",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "lupa.refresh",
+          "when": "lupa.dumpActive"
+        },
+        {
+          "command": "lupa.copyDump",
+          "when": "lupa.dumpActive"
+        },
+        {
+          "command": "lupa.openWith",
+          "when": "resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "lupa.openWith",
+          "when": "resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Lupa",
+      "properties": {
+        "lupa.cliPath": {
+          "type": "string",
+          "default": "lupa",
+          "description": "Path to the lupa CLI executable. Defaults to lupa on PATH, or lupa.exe in the workspace root."
+        },
+        "lupa.dumpFormat": {
+          "type": "string",
+          "enum": [
+            "yaml",
+            "tree"
+          ],
+          "default": "yaml",
+          "description": "Output format passed to lupa dump."
+        },
+        "lupa.maxDepth": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "description": "Optional max traversal depth for lupa dump."
+        },
+        "lupa.includeFullProperties": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include default-valued properties in dump output."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "open-dev-host": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/open-dev-host.ps1",
+    "package-vsix": "pnpm run compile && pnpm exec vsce package --no-dependencies --allow-missing-repository",
+    "install-local": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-local.ps1",
+    "pretest": "pnpm run compile && pnpm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.105.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.2",
+    "eslint": "^9.39.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
+  },
+  "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
+}

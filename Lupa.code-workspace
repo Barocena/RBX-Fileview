@@ -1,0 +1,87 @@
+{
+	"folders": [
+		{
+			"name": "Lupa",
+			"path": "."
+		}
+	],
+	"settings": {
+		"workbench.editorAssociations": {
+			"*.rbxl": "lupa.roblox",
+			"*.rbxlx": "lupa.roblox",
+			"*.rbxm": "lupa.roblox",
+			"*.rbxmx": "lupa.roblox"
+		}
+	},
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "Compile Extension",
+				"type": "shell",
+				"command": "pnpm run compile",
+				"options": {
+					"cwd": "${workspaceFolder}/Extension/lupa"
+				},
+				"problemMatcher": "$tsc",
+				"presentation": {
+					"reveal": "always",
+					"panel": "shared"
+				}
+			},
+			{
+				"label": "Install Extension Locally",
+				"type": "shell",
+				"command": "pnpm run install-local",
+				"options": {
+					"cwd": "${workspaceFolder}/Extension/lupa"
+				},
+				"problemMatcher": [],
+				"presentation": {
+					"reveal": "always",
+					"panel": "shared",
+					"focus": true,
+					"showReuseMessage": false
+				}
+			}
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Run Lupa Extension",
+				"type": "extensionHost",
+				"request": "launch",
+				"runtimeExecutable": "${execPath}",
+				"debugWebWorkerExtensions": false,
+				"args": [
+					"--new-window",
+					"--extensionDevelopmentPath=${workspaceFolder}/Extension/lupa",
+					"${workspaceFolder}"
+				],
+				"outFiles": [
+					"${workspaceFolder}/Extension/lupa/out/**/*.js"
+				],
+				"preLaunchTask": "Compile Extension",
+				"internalConsoleOptions": "openOnSessionStart"
+			},
+			{
+				"name": "Run Lupa Extension (skip build)",
+				"type": "extensionHost",
+				"request": "launch",
+				"runtimeExecutable": "${execPath}",
+				"debugWebWorkerExtensions": false,
+				"args": [
+					"--new-window",
+					"--extensionDevelopmentPath=${workspaceFolder}/Extension/lupa",
+					"${workspaceFolder}"
+				],
+				"outFiles": [
+					"${workspaceFolder}/Extension/lupa/out/**/*.js"
+				],
+				"internalConsoleOptions": "openOnSessionStart"
+			}
+		]
+	}
+}

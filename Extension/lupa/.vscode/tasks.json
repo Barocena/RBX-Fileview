@@ -2,27 +2,9 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "Compile CLI",
-			"type": "shell",
-			"group": "build",
-			"command": "darklua process ./cli/Init.luau Out/Bundle.luau;darklua minify Out/Bundle.luau Out/Bundle.luau;lune build Out/Bundle.luau -o lupa.exe",
-			"isBackground": true,
-			"presentation": {
-				"reveal": "never",
-				"revealProblems": "never",
-				"panel": "dedicated"
-			}
-		},
-		{
 			"label": "Compile Extension",
 			"type": "shell",
 			"command": "pnpm run compile",
-			"options": {
-				"cwd": "${workspaceFolder}/Extension/lupa",
-				"env": {
-					"PATH": "${env:PATH}"
-				}
-			},
 			"group": {
 				"kind": "build",
 				"isDefault": true
@@ -39,9 +21,6 @@
 			"label": "Watch Extension",
 			"type": "shell",
 			"command": "pnpm run watch",
-			"options": {
-				"cwd": "${workspaceFolder}/Extension/lupa"
-			},
 			"isBackground": true,
 			"problemMatcher": "$tsc-watch",
 			"presentation": {
@@ -53,12 +32,6 @@
 			"label": "Install Extension Locally",
 			"type": "shell",
 			"command": "pnpm run install-local",
-			"options": {
-				"cwd": "${workspaceFolder}/Extension/lupa",
-				"env": {
-					"PATH": "${env:PATH}"
-				}
-			},
 			"problemMatcher": [],
 			"presentation": {
 				"reveal": "always",

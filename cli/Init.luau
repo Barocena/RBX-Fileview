@@ -33,10 +33,9 @@ if lower == "-v" or lower == "--version" then
 	return
 end
 
--- Add subcommands here:
--- if lower == "my-command" then
--- 	...
--- 	return
--- end
+if lower == "dump" then
+	require("@self/dump").run({ table.unpack(process.args, 2) })
+	return
+end
 
 showUnknownCommand(arg)

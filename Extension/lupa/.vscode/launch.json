@@ -1,0 +1,38 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Run Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"debugWebWorkerExtensions": false,
+			"args": [
+				"--new-window",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"${workspaceFolder}/../.."
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"preLaunchTask": "Compile Extension",
+			"internalConsoleOptions": "openOnSessionStart"
+		},
+		{
+			"name": "Run Extension (skip build)",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"debugWebWorkerExtensions": false,
+			"args": [
+				"--new-window",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"${workspaceFolder}/../.."
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"internalConsoleOptions": "openOnSessionStart"
+		}
+	]
+}
