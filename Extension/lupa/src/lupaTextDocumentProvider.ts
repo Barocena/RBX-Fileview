@@ -40,9 +40,13 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 
 	refresh(uri?: vscode.Uri): void {
 		if (uri) {
-			const lupaUri = isLupaUri(uri) ? uri : isRobloxFile(uri) ? toLupaUri(uri) : undefined;
-			if (lupaUri) {
-				this.changeEmitter.fire(lupaUri);
+			if (isLupaUri(uri)) {
+				this.changeEmitter.fire(uri);
+				return;
+			}
+
+			if (isRobloxFile(uri)) {
+				this.fireRefreshForSourceFile(uri);
 			}
 			return;
 		}
@@ -52,6 +56,30 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 				this.changeEmitter.fire(document.uri);
 			}
 		}
+	}
+
+	/** Re-dump before opening or refocusing a tab. VS Code caches virtual documents. */
+	prepareOpen(sourceUri: vscode.Uri): void {
+		if (getLupaGitRef(toLupaUri(sourceUri)) === 'WORKTREE') {
+			this.ensureWatcher(sourceUri);
+		}
+		this.fireRefreshForSourceFile(sourceUri);
+	}
+
+	private fireRefreshForSourceFile(sourceUri: vscode.Uri): void {
+		const key = sourceUri.fsPath;
+		for (const document of vscode.workspace.textDocuments) {
+			if (document.uri.scheme !== LUPA_SCHEME) {
+				continue;
+			}
+
+			if (fromLupaUri(document.uri).fsPath === key) {
+				this.changeEmitter.fire(document.uri);
+			}
+		}
+
+		// Explorer tabs use lupa: URIs without a query; fire that canonical URI too.
+		this.changeEmitter.fire(toLupaUri(sourceUri));
 	}
 
 	private ensureWatcher(sourceUri: vscode.Uri): void {
@@ -65,14 +93,12 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 			path.basename(sourceUri.fsPath),
 		);
 		const watcher = vscode.workspace.createFileSystemWatcher(watchPattern);
-		const refreshUri = toLupaUri(sourceUri).with({ query: 'ref=WORKTREE' });
+		const refresh = () => {
+			this.fireRefreshForSourceFile(sourceUri);
+		};
 
-		watcher.onDidChange(() => {
-			this.changeEmitter.fire(refreshUri);
-		});
-		watcher.onDidCreate(() => {
-			this.changeEmitter.fire(refreshUri);
-		});
+		watcher.onDidChange(refresh);
+		watcher.onDidCreate(refresh);
 
 		this.watchers.set(key, watcher);
 	}

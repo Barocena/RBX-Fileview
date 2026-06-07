@@ -81,8 +81,8 @@ lune build Out/Bundle.luau -o lupa.exe
 | `lupa.cliPath` | `lupa` | Path to the lupa executable |
 | `lupa.maxDepth` | `null` | Optional depth limit for large files |
 | `lupa.includeFullProperties` | `false` | Pass `--full` to include default properties |
+| `lupa.includeSource` | `true` | Include script `Source` text; set `false` for shorter place dumps |
 | `lupa.setupGitDiff` | `true` | Configure git textconv for YAML diffs in Source Control |
-| `lupa.updateGitAttributes` | `true` | Add `diff=lupa` lines to `.gitattributes` when missing |
 
 ## Commands
 
@@ -100,7 +100,7 @@ Roblox files are binary. **Do not** use `workbench.editorAssociations` with `lup
 
 **Manual compare:** Command Palette → **Lupa: Compare Active File With...**
 
-**Terminal git diff:** Lupa configures `scripts/lupa-textconv.cmd` as the git `textconv` driver. After extension activation, `git diff` on `.rbxm` files should also show YAML.
+**Terminal git diff:** On activate, Lupa writes `diff=lupa` rules to `.git/info/attributes` (local-only, not committed) and configures `diff.lupa.textconv` in `.git/config`. After that, `git diff` on `.rbxm` files should show YAML.
 
 ## How it works
 

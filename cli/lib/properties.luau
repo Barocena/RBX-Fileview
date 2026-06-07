@@ -4,6 +4,7 @@ local Values = require("./values")
 export type PropertyOptions = {
 	full: boolean,
 	includeProperties: boolean,
+	includeSource: boolean,
 	pathMap: { [Instance]: string },
 }
 
@@ -135,6 +136,10 @@ function Properties.collect(instance: Instance, options: PropertyOptions): { [st
 
 	for propertyName, property in properties do
 		if SKIP_PROPERTIES[propertyName] or shouldSkipProperty(property) then
+			continue
+		end
+
+		if not options.includeSource and propertyName == "Source" then
 			continue
 		end
 

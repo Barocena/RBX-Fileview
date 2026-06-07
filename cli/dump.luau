@@ -11,6 +11,7 @@ export type DumpOptions = {
 	outputPath: string?,
 	full: boolean,
 	includeProperties: boolean,
+	includeSource: boolean,
 	maxDepth: number?,
 	stats: boolean,
 }
@@ -26,6 +27,7 @@ local function printHelp()
 	print("  --max-depth <n>         Limit traversal depth")
 	print("  --properties            Include properties (default)")
 	print("  --no-properties         Instance structure only")
+	print("  --no-source             Omit script Source property text")
 	print("  --stats                 Print instance counts to stderr")
 	print("  -h, --help              Show this help message")
 end
@@ -36,6 +38,7 @@ local function parseArgs(args: { string }): DumpOptions
 		outputPath = nil,
 		full = false,
 		includeProperties = true,
+		includeSource = true,
 		maxDepth = nil,
 		stats = false,
 	}
@@ -66,6 +69,8 @@ local function parseArgs(args: { string }): DumpOptions
 			options.includeProperties = true
 		elseif arg == "--no-properties" then
 			options.includeProperties = false
+		elseif arg == "--no-source" then
+			options.includeSource = false
 		elseif arg == "--stats" then
 			options.stats = true
 		elseif arg == "--format" then
@@ -106,6 +111,7 @@ function Dump.run(args: { string })
 	local treeOptions: Tree.TreeOptions = {
 		full = options.full,
 		includeProperties = options.includeProperties,
+		includeSource = options.includeSource,
 		maxDepth = options.maxDepth,
 	}
 

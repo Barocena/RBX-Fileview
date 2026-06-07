@@ -13,6 +13,7 @@ import { applyDumpLanguage, openLupaDocument } from './openRobloxFile';
 import { setupRobloxTabRouter } from './robloxTabRouter';
 import { RobloxCustomEditorProvider } from './robloxCustomEditorProvider';
 import { openGitChanges } from './scmDiff';
+import { revealLupaSourceInExplorer } from './revealSourceInExplorer';
 
 function updateActiveDumpContext(): void {
 	const active = vscode.window.activeTextEditor?.document.uri;
@@ -33,7 +34,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 		const textProvider = new LupaTextDocumentProvider();
 		textProvider.setOutputChannel(output);
-		const customEditorProvider = new RobloxCustomEditorProvider(output);
+		const customEditorProvider = new RobloxCustomEditorProvider(output, textProvider);
 
 		const refreshActiveDump = () => {
 			const active = vscode.window.activeTextEditor?.document.uri;
@@ -52,13 +53,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			vscode.workspace.onDidOpenTextDocument((document) => {
 				void applyDumpLanguage(document);
 			}),
-			vscode.window.onDidChangeActiveTextEditor(() => {
+			vscode.window.onDidChangeActiveTextEditor((editor) => {
 				updateActiveDumpContext();
+				void revealLupaSourceInExplorer(editor?.document.uri);
 			}),
 			vscode.workspace.onDidCloseTextDocument(() => {
 				updateActiveDumpContext();
 			}),
-			setupRobloxTabRouter(output),
+			setupRobloxTabRouter(output, textProvider),
 			vscode.commands.registerCommand('lupa.refresh', refreshActiveDump),
 			vscode.commands.registerCommand('lupa.copyDump', async () => {
 				const document = vscode.window.activeTextEditor?.document;
@@ -83,7 +85,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 					return;
 				}
 
-				await openLupaDocument(fileUri, output);
+				await openLupaDocument(fileUri, output, undefined, textProvider);
 			}),
 			vscode.commands.registerCommand('lupa.openGitChanges', (uri?: vscode.Uri) => openGitChanges(uri, output)),
 			vscode.commands.registerCommand('lupa.selectForCompare', (uri?: vscode.Uri) => selectForCompare(uri)),

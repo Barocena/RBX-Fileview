@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import type { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
 import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
 import { fromLupaUri, isLupaUri } from './lupaUri';
 
@@ -128,8 +129,15 @@ export function findLupaDiffTab(fileUri: vscode.Uri): vscode.Tab | undefined {
 	return undefined;
 }
 
-export async function focusTab(tab: vscode.Tab): Promise<void> {
+export async function focusTab(
+	tab: vscode.Tab,
+	textProvider?: LupaTextDocumentProvider,
+): Promise<void> {
 	if (tab.input instanceof vscode.TabInputText) {
+		if (isLupaUri(tab.input.uri)) {
+			textProvider?.prepareOpen(fromLupaUri(tab.input.uri));
+		}
+
 		const document = await vscode.workspace.openTextDocument(tab.input.uri);
 		await vscode.window.showTextDocument(document, {
 			viewColumn: tab.group.viewColumn,

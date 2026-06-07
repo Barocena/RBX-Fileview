@@ -54,6 +54,7 @@ The default output is YAML with:
 - Stable child ordering (`Name`, then `ClassName`)
 - Sorted property keys
 - Default property omission (use `--full` to include defaults)
+- Script `Source` included by default (use `--no-source` to omit script text)
 - Native YAML arrays for numeric types (Vector3, CFrame, Color3, etc.)
 - Short enum values (for example `Smooth` instead of `Enum.SurfaceType.Smooth`)
 - Instance references like `Tree_Pink/Ball`
@@ -82,6 +83,8 @@ Press **F5** in VS Code with the extension folder open to launch an Extension De
 See [Extension/lupa/README.md](Extension/lupa/README.md) for settings and commands.
 
 ## Git diffs
+
+The VS Code extension configures this automatically per clone in `.git/info/attributes` and `.git/config` (nothing added to your working tree). For manual setup:
 
 ```gitattributes
 *.rbxl diff=lupa

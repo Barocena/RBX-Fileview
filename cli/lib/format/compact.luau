@@ -1,11 +1,24 @@
 local Compact = {}
 
-local function formatNumber(value: number): string
-	if value == math.floor(value) then
-		return tostring(value)
+local function isArray(value: any): boolean
+	if type(value) ~= "table" then
+		return false
 	end
 
-	return string.format("%.6g", value)
+	local length = #value
+	if length == 0 then
+		return false
+	end
+
+	local count = 0
+	for index in value do
+		if type(index) ~= "number" then
+			return false
+		end
+		count += 1
+	end
+
+	return count == length
 end
 
 local function formatInstancePath(path: string): string
@@ -20,60 +33,69 @@ local function formatInstancePath(path: string): string
 	return path
 end
 
-function Compact.formatSerialized(value: any): string
-	if value == nil then
-		return "nil"
-	end
+local function compactVector2(vector: { x: number, y: number }): { number }
+	return { vector.x, vector.y }
+end
 
-	if type(value) == "boolean" or type(value) == "number" then
-		if type(value) == "number" then
-			return formatNumber(value)
-		end
-		return tostring(value)
-	end
+local function compactColor3(color: { r: number, g: number, b: number }): { number }
+	return { color.r, color.g, color.b }
+end
 
-	if type(value) == "string" then
-		return value
-	end
-
+function Compact.compactPropertyValue(value: any): any
 	if type(value) ~= "table" or value.type == nil then
-		return tostring(value)
+		return value
 	end
 
 	local kind = value.type
 
 	if kind == "Vector3" then
-		return `Vector3({formatNumber(value.x)}, {formatNumber(value.y)}, {formatNumber(value.z)})`
+		return { value.x, value.y, value.z }
 	end
 
 	if kind == "Vector2" then
-		return `Vector2({formatNumber(value.x)}, {formatNumber(value.y)})`
+		return compactVector2(value)
 	end
 
 	if kind == "Color3" then
-		return `Color3({formatNumber(value.r)}, {formatNumber(value.g)}, {formatNumber(value.b)})`
+		return compactColor3(value)
 	end
 
 	if kind == "UDim" then
-		return `UDim({formatNumber(value.scale)}, {value.offset})`
+		return { value.scale, value.offset }
 	end
 
 	if kind == "UDim2" then
-		return `UDim2({Compact.formatSerialized(value.x)}, {Compact.formatSerialized(value.y)})`
+		return {
+			value.x.scale,
+			value.x.offset,
+			value.y.scale,
+			value.y.offset,
+		}
 	end
 
 	if kind == "CFrame" then
-		local position = value.position
-		local orientation = value.orientation
-		local parts = {
-			formatNumber(position[1]),
-			formatNumber(position[2]),
-			formatNumber(position[3]),
-		}
-		for index = 1, 9 do
-			table.insert(parts, formatNumber(orientation[index]))
+		local numbers = {}
+		for _, number in value.position do
+			table.insert(numbers, number)
 		end
-		return `CFrame.new({table.concat(parts, ", ")})`
+		for _, number in value.orientation do
+			table.insert(numbers, number)
+		end
+		return numbers
+	end
+
+	if kind == "NumberRange" then
+		return { value.min, value.max }
+	end
+
+	if kind == "PhysicalProperties" then
+		return {
+			value.density,
+			value.friction,
+			value.elasticity,
+			value.frictionWeight,
+			value.elasticityWeight,
+		}
 	end
 
 	if kind == "Enum" then
@@ -85,52 +107,41 @@ function Compact.formatSerialized(value: any): string
 	end
 
 	if kind == "BrickColor" then
-		return `BrickColor({value.number})`
+		return value.number
 	end
 
 	if kind == "UniqueId" then
-		return `UniqueId({value.value})`
-	end
-
-	if kind == "NumberRange" then
-		return `NumberRange.new({formatNumber(value.min)}, {formatNumber(value.max)})`
-	end
-
-	if kind == "NumberSequence" then
-		local keypoints = {}
-		for _, keypoint in value.keypoints do
-			table.insert(
-				keypoints,
-				`NumberSequenceKeypoint.new({formatNumber(keypoint.time)}, {formatNumber(keypoint.value)}, {formatNumber(keypoint.envelope)})`
-			)
-		end
-		return `NumberSequence.new({table.concat(keypoints, ", ")})`
-	end
-
-	if kind == "ColorSequence" then
-		local keypoints = {}
-		for _, keypoint in value.keypoints do
-			table.insert(
-				keypoints,
-				`ColorSequenceKeypoint.new({formatNumber(keypoint.time)}, {Compact.formatSerialized(keypoint.color)})`
-			)
-		end
-		return `ColorSequence.new({table.concat(keypoints, ", ")})`
+		return value.value
 	end
 
 	if kind == "Rect" then
-		return `Rect.new({Compact.formatSerialized(value.min)}, {Compact.formatSerialized(value.max)})`
+		local min = compactVector2(value.min)
+		local max = compactVector2(value.max)
+		return { min[1], min[2], max[1], max[2] }
 	end
 
-	if kind == "PhysicalProperties" then
-		return `PhysicalProperties.new({formatNumber(value.density)}, {formatNumber(value.friction)}, {formatNumber(value.elasticity)}, {formatNumber(value.frictionWeight)}, {formatNumber(value.elasticityWeight)})`
+	if kind == "NumberSequence" then
+		local keypoints = table.create(#value.keypoints)
+		for index, keypoint in value.keypoints do
+			keypoints[index] = { keypoint.time, keypoint.value, keypoint.envelope }
+		end
+		return keypoints
+	end
+
+	if kind == "ColorSequence" then
+		local keypoints = table.create(#value.keypoints)
+		for index, keypoint in value.keypoints do
+			local color = compactColor3(keypoint.color)
+			keypoints[index] = { keypoint.time, color[1], color[2], color[3] }
+		end
+		return keypoints
 	end
 
 	if kind == "BinaryString" then
 		if value.encoding == "hash" then
-			return `BinaryString.hash({value.value}, {value.size})`
+			return { value.size, value.value }
 		end
-		return `BinaryString.base64({value.value})`
+		return value.value
 	end
 
 	if kind == "Content" then
@@ -138,80 +149,27 @@ function Compact.formatSerialized(value: any): string
 	end
 
 	if value.value ~= nil then
-		return `{kind}({tostring(value.value)})`
+		if isArray(value.value) then
+			local compacted = table.create(#value.value)
+			for index, item in value.value do
+				compacted[index] = Compact.compactPropertyValue(item)
+			end
+			return compacted
+		end
+
+		return value.value
 	end
 
-	return `{kind}(...)`
-end
-
-function Compact.compactPropertyValue(value: any): any
-	if type(value) == "table" and value.type ~= nil then
-		local kind = value.type
-
-		if kind == "Vector3" then
-			return { value.x, value.y, value.z }
-		end
-
-		if kind == "Vector2" then
-			return { value.x, value.y }
-		end
-
-		if kind == "Color3" then
-			return { value.r, value.g, value.b }
-		end
-
-		if kind == "UDim" then
-			return { value.scale, value.offset }
-		end
-
-		if kind == "UDim2" then
-			return {
-				value.x.scale,
-				value.x.offset,
-				value.y.scale,
-				value.y.offset,
-			}
-		end
-
-		if kind == "CFrame" then
-			local numbers = {}
-			for _, number in value.position do
-				table.insert(numbers, number)
-			end
-			for _, number in value.orientation do
-				table.insert(numbers, number)
-			end
-			return numbers
-		end
-
-		if kind == "NumberRange" then
-			return { value.min, value.max }
-		end
-
-		if kind == "PhysicalProperties" then
-			return {
-				value.density,
-				value.friction,
-				value.elasticity,
-				value.frictionWeight,
-				value.elasticityWeight,
-			}
-		end
-
-		if kind == "Enum" then
-			return value.value
-		end
-
-		return Compact.formatSerialized(value)
-	end
-
-	return value
+	return nil
 end
 
 function Compact.compactProperties(properties: { [string]: any }): { [string]: any }
 	local compacted: { [string]: any } = {}
 	for key, propertyValue in properties do
-		compacted[key] = Compact.compactPropertyValue(propertyValue)
+		local compactedValue = Compact.compactPropertyValue(propertyValue)
+		if compactedValue ~= nil then
+			compacted[key] = compactedValue
+		end
 	end
 	return compacted
 end

@@ -51,8 +51,9 @@ async function resolveTextconvCommand(folderPath: string, cliPath: string): Prom
 	return `${cliPath} dump`;
 }
 
-async function ensureGitAttributes(folderPath: string, output: vscode.OutputChannel): Promise<void> {
-	const attributesPath = path.join(folderPath, '.gitattributes');
+async function ensureGitAttributes(gitRoot: string, output: vscode.OutputChannel): Promise<void> {
+	const infoDir = path.join(gitRoot, '.git', 'info');
+	const attributesPath = path.join(infoDir, 'attributes');
 	let contents = '';
 
 	try {
@@ -62,9 +63,11 @@ async function ensureGitAttributes(folderPath: string, output: vscode.OutputChan
 	}
 
 	if (contents.includes('diff=lupa')) {
-		output.appendLine(`.gitattributes already has diff=lupa (${attributesPath})`);
+		output.appendLine(`.git/info/attributes already has diff=lupa (${attributesPath})`);
 		return;
 	}
+
+	await fs.mkdir(infoDir, { recursive: true });
 
 	const prefix = contents.length > 0 && !contents.endsWith('\n') ? '\n' : '';
 	const updated = `${contents}${prefix}${GIT_ATTRIBUTES_LINES.join('\n')}`;
@@ -116,9 +119,7 @@ export async function setupGitDiffSupport(output: vscode.OutputChannel): Promise
 			output.appendLine(`Using CLI: ${cliPath}`);
 			const textconv = await resolveTextconvCommand(gitRoot, cliPath);
 
-			if (config.get<boolean>('updateGitAttributes', true)) {
-				await ensureGitAttributes(gitRoot, output);
-			}
+			await ensureGitAttributes(gitRoot, output);
 			await ensureGitConfig(gitRoot, textconv, output);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { isInDiffContext } from './diffGuard';
+import type { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
 import { isLupaUri, normalizeRobloxFileUri } from './lupaUri';
 import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
 import {
@@ -55,6 +56,7 @@ async function schedulePlaceholderSweep(fileUri: vscode.Uri, intent: RobloxOpenI
 async function focusExistingView(
 	fileUri: vscode.Uri,
 	intent: RobloxOpenIntent,
+	textProvider: LupaTextDocumentProvider | undefined,
 	sourceTab?: vscode.Tab,
 ): Promise<boolean> {
 	const existing = intent === 'scmDiff' ? findLupaDiffTab(fileUri) : findLupaSingleTab(fileUri);
@@ -72,13 +74,14 @@ async function focusExistingView(
 		await closeTabIfPresent(sourceTab);
 	}
 
-	await focusTab(existing);
+	await focusTab(existing, textProvider);
 	return true;
 }
 
 export async function routeRobloxFileOpen(
 	fileUri: vscode.Uri,
 	output: vscode.OutputChannel,
+	textProvider?: LupaTextDocumentProvider,
 	options?: {
 		intent?: RobloxOpenIntent;
 		sourceTab?: vscode.Tab;
@@ -92,7 +95,7 @@ export async function routeRobloxFileOpen(
 		return;
 	}
 
-	if (await focusExistingView(normalized, intent, options?.sourceTab)) {
+	if (await focusExistingView(normalized, intent, textProvider, options?.sourceTab)) {
 		return;
 	}
 
@@ -120,7 +123,7 @@ export async function routeRobloxFileOpen(
 			await openGitChanges(normalized, output, { viewColumn });
 		} else if (openByDefault) {
 			output.appendLine(`Routing Roblox file to Lupa text view: ${normalized.fsPath}`);
-			await openLupaDocument(normalized, output, { viewColumn, preview: false });
+			await openLupaDocument(normalized, output, { viewColumn, preview: false }, textProvider);
 		} else {
 			return;
 		}
@@ -136,7 +139,10 @@ export async function routeRobloxFileOpen(
 	}
 }
 
-export function setupRobloxTabRouter(output: vscode.OutputChannel): vscode.Disposable {
+export function setupRobloxTabRouter(
+	output: vscode.OutputChannel,
+	textProvider?: LupaTextDocumentProvider,
+): vscode.Disposable {
 	return vscode.window.tabGroups.onDidChangeTabs((event) => {
 		for (const tab of event.opened) {
 			if (tab.input instanceof vscode.TabInputTextDiff) {
@@ -149,7 +155,7 @@ export function setupRobloxTabRouter(output: vscode.OutputChannel): vscode.Dispo
 					continue;
 				}
 
-				void routeRobloxFileOpen(fileUri, output, { intent: 'scmDiff', sourceTab: tab });
+				void routeRobloxFileOpen(fileUri, output, textProvider, { intent: 'scmDiff', sourceTab: tab });
 				continue;
 			}
 
@@ -159,7 +165,7 @@ export function setupRobloxTabRouter(output: vscode.OutputChannel): vscode.Dispo
 					continue;
 				}
 
-				void routeRobloxFileOpen(fileUri, output, { intent: 'explorer', sourceTab: tab });
+				void routeRobloxFileOpen(fileUri, output, textProvider, { intent: 'explorer', sourceTab: tab });
 			}
 		}
 	});

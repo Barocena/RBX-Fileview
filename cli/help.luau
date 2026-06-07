@@ -22,6 +22,7 @@ function Help(VERSION: string, CLI_NAME: string)
 	print("  " .. Color("--max-depth <n>", "cyan", "reset") .. "         Limit traversal depth")
 	print("  " .. Color("--properties", "cyan", "reset") .. "             Include properties (default)")
 	print("  " .. Color("--no-properties", "cyan", "reset") .. "          Instance structure only")
+	print("  " .. Color("--no-source", "cyan", "reset") .. "             Omit script Source property text")
 	print("  " .. Color("--stats", "cyan", "reset") .. "                 Print instance counts to stderr")
 	print("")
 

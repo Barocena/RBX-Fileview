@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import type { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
 import { normalizeRobloxFileUri } from './lupaUri';
 import { openLupaDocument } from './openRobloxFile';
 
@@ -9,7 +10,10 @@ class RobloxCustomDocument implements vscode.CustomDocument {
 }
 
 export class RobloxCustomEditorProvider implements vscode.CustomReadonlyEditorProvider<RobloxCustomDocument> {
-	constructor(private readonly output: vscode.OutputChannel) {}
+	constructor(
+		private readonly output: vscode.OutputChannel,
+		private readonly textProvider?: LupaTextDocumentProvider,
+	) {}
 
 	async openCustomDocument(
 		uri: vscode.Uri,
@@ -32,7 +36,7 @@ export class RobloxCustomEditorProvider implements vscode.CustomReadonlyEditorPr
 		_token: vscode.CancellationToken,
 	): Promise<void> {
 		this.output.appendLine(`Custom editor redirecting to Lupa text view: ${document.uri.fsPath}`);
-		await openLupaDocument(document.uri, this.output);
+		await openLupaDocument(document.uri, this.output, undefined, this.textProvider);
 		setTimeout(() => {
 			webviewPanel.dispose();
 		}, 0);

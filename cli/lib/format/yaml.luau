@@ -80,10 +80,14 @@ local function formatScalar(value: any): string
 	return tostring(value)
 end
 
-local function encodeInlineArray(value: { any }): string
+local function encodeArrayValue(value: { any }): string
 	local parts = table.create(#value)
 	for _, item in value do
-		table.insert(parts, formatScalar(item))
+		if isArray(item) then
+			table.insert(parts, encodeArrayValue(item))
+		else
+			table.insert(parts, formatScalar(item))
+		end
 	end
 	return `[{table.concat(parts, ", ")}]`
 end
@@ -92,7 +96,7 @@ local function encodeScalarLines(value: any, indentLevel: number): { string }
 	local indent = string.rep("  ", indentLevel)
 
 	if isArray(value) then
-		return { encodeInlineArray(value) }
+		return { encodeArrayValue(value) }
 	end
 
 	if type(value) == "boolean" or type(value) == "number" then

@@ -14,6 +14,7 @@ export interface DumpResult {
 export interface DumpOptions {
 	maxDepth?: number;
 	includeProperties?: boolean;
+	includeSource?: boolean;
 	full?: boolean;
 }
 
@@ -87,6 +88,7 @@ export function buildDumpArgs(filePath: string, options: DumpOptions = {}): stri
 	const maxDepth = options.maxDepth ?? config.get<number | null>('maxDepth', null);
 	const full = options.full ?? config.get<boolean>('includeFullProperties', false);
 	const includeProperties = options.includeProperties ?? true;
+	const includeSource = options.includeSource ?? config.get<boolean>('includeSource', true);
 
 	const args = ['dump', filePath];
 
@@ -100,6 +102,10 @@ export function buildDumpArgs(filePath: string, options: DumpOptions = {}): stri
 
 	if (!includeProperties) {
 		args.push('--no-properties');
+	}
+
+	if (!includeSource) {
+		args.push('--no-source');
 	}
 
 	return args;

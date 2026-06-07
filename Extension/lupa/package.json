@@ -182,15 +182,15 @@
           "default": false,
           "description": "Include default-valued properties in dump output."
         },
+        "lupa.includeSource": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include script Source property text in dump output. Disable for large place files."
+        },
         "lupa.setupGitDiff": {
           "type": "boolean",
           "default": true,
           "description": "Configure git textconv so Source Control diffs show Lupa YAML instead of binary."
-        },
-        "lupa.updateGitAttributes": {
-          "type": "boolean",
-          "default": true,
-          "description": "Add Lupa diff driver lines to .gitattributes when missing in the workspace."
         },
         "lupa.openByDefault": {
           "type": "boolean",
