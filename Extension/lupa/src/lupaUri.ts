@@ -1,15 +1,18 @@
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 export const LUPA_SCHEME = 'lupa';
-export const ROBOX_EXTENSIONS = new Set(['.rbxl', '.rbxlx', '.rbxm', '.rbxmx']);
+
+export const ROBLOX_EXTENSIONS = new Set(['.rbxl', '.rbxlx', '.rbxm', '.rbxmx']);
+
+export const ROBLOX_GLOB_PATTERNS = ['*.rbxl', '*.rbxlx', '*.rbxm', '*.rbxmx'] as const;
 
 export function isRobloxFile(uri: vscode.Uri): boolean {
 	if (uri.scheme !== 'file') {
 		return false;
 	}
 
-	const extension = uri.path.slice(uri.path.lastIndexOf('.')).toLowerCase();
-	return ROBOX_EXTENSIONS.has(extension);
+	return ROBLOX_EXTENSIONS.has(path.extname(uri.fsPath).toLowerCase());
 }
 
 export function isLupaUri(uri: vscode.Uri): boolean {

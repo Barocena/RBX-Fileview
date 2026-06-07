@@ -1,7 +1,9 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { beginDiffOperation, endDiffOperation } from './diffGuard';
+import { errorMessage } from './errorMessage';
 import { fromLupaUri, isLupaUri, isRobloxFile, toLupaUri } from './lupaUri';
+import { robloxFileKey } from './robloxUri';
 
 let compareSource: vscode.Uri | undefined;
 
@@ -47,9 +49,8 @@ export async function openRobloxDiff(
 			preview: false,
 		});
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		output?.appendLine(`Diff failed: ${message}`);
-		void vscode.window.showErrorMessage(`Lupa diff failed: ${message}`);
+		output?.appendLine(`Diff failed: ${errorMessage(error)}`);
+		void vscode.window.showErrorMessage(`Lupa diff failed: ${errorMessage(error)}`);
 		throw error;
 	} finally {
 		endDiffOperation();
@@ -84,7 +85,7 @@ export async function compareWithSelected(uri?: vscode.Uri, output?: vscode.Outp
 		return;
 	}
 
-	if (fileUri.toString() === compareSource.toString()) {
+	if (robloxFileKey(fileUri) === robloxFileKey(compareSource)) {
 		void vscode.window.showWarningMessage('Choose a different file to compare.');
 		return;
 	}
@@ -118,7 +119,7 @@ export async function compareWith(uri?: vscode.Uri, output?: vscode.OutputChanne
 		return;
 	}
 
-	if (rightFile.toString() === leftFile.toString()) {
+	if (robloxFileKey(rightFile) === robloxFileKey(leftFile)) {
 		void vscode.window.showWarningMessage('Choose a different file to compare.');
 		return;
 	}

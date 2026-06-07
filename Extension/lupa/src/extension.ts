@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { errorMessage } from './errorMessage';
 import {
 	compareActiveWith,
 	compareWith,
@@ -26,9 +27,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	try {
 		output.appendLine('Lupa extension activating...');
-		output.show(true);
 
 		if (context.extensionMode === vscode.ExtensionMode.Development) {
+			output.show(true);
 			void vscode.window.showInformationMessage('Lupa extension loaded (development mode)');
 		}
 
@@ -101,13 +102,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		output.appendLine('Ready. Open a .rbxm file or run "Lupa: Open with Lupa Editor".');
 
 		void setupGitDiffSupport(output).catch((error: unknown) => {
-			const message = error instanceof Error ? error.message : String(error);
-			output.appendLine(`Git setup failed: ${message}`);
+			output.appendLine(`Git setup failed: ${errorMessage(error)}`);
 		});
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		output.appendLine(`Activation failed: ${message}`);
-		void vscode.window.showErrorMessage(`Lupa extension failed to activate: ${message}`);
+		output.appendLine(`Activation failed: ${errorMessage(error)}`);
+		void vscode.window.showErrorMessage(`Lupa extension failed to activate: ${errorMessage(error)}`);
 		throw error;
 	}
 }

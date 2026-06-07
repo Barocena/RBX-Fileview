@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
-import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
 import { fromLupaUri, isLupaUri } from './lupaUri';
+import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
 
 const LUPA_CUSTOM_VIEW = 'lupa.roblox';
 

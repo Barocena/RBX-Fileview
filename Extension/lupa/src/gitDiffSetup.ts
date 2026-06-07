@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import * as vscode from 'vscode';
 import { clearUserEditorAssociations, clearWorkspaceEditorAssociations } from './editorAssociations';
+import { errorMessage } from './errorMessage';
 import { resolveCliPath } from './lupaCli';
 
 const execFileAsync = promisify(execFile);
@@ -122,8 +123,7 @@ export async function setupGitDiffSupport(output: vscode.OutputChannel): Promise
 			await ensureGitAttributes(gitRoot, output);
 			await ensureGitConfig(gitRoot, textconv, output);
 		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			output.appendLine(`Failed to configure git diff support for ${gitRoot}: ${message}`);
+			output.appendLine(`Failed to configure git diff support for ${gitRoot}: ${errorMessage(error)}`);
 		}
 	}
 }

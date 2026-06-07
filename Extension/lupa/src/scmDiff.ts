@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { beginDiffOperation, endDiffOperation } from './diffGuard';
+import { errorMessage } from './errorMessage';
 import { isRobloxFile, normalizeRobloxFileUri, toLupaUri } from './lupaUri';
 
 function toLupaGitUri(fileUri: vscode.Uri, ref: 'HEAD' | 'WORKTREE'): vscode.Uri {
@@ -35,9 +36,8 @@ export async function openGitChanges(
 			viewColumn: options?.viewColumn,
 		});
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		output?.appendLine(`Git diff failed: ${message}`);
-		void vscode.window.showErrorMessage(`Lupa git diff failed: ${message}`);
+		output?.appendLine(`Git diff failed: ${errorMessage(error)}`);
+		void vscode.window.showErrorMessage(`Lupa git diff failed: ${errorMessage(error)}`);
 		throw error;
 	} finally {
 		endDiffOperation();

@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import * as vscode from 'vscode';
 
 const execFileAsync = promisify(execFile);
+const CLI_EXECUTABLE = process.platform === 'win32' ? 'lupa.exe' : 'lupa';
 
 export interface DumpResult {
 	stdout: string;
@@ -28,10 +29,8 @@ async function fileExists(filePath: string): Promise<boolean> {
 }
 
 async function findWorkspaceCli(): Promise<string | undefined> {
-	const executableName = process.platform === 'win32' ? 'lupa.exe' : 'lupa';
-
 	for (const folder of vscode.workspace.workspaceFolders ?? []) {
-		const candidate = path.join(folder.uri.fsPath, executableName);
+		const candidate = path.join(folder.uri.fsPath, CLI_EXECUTABLE);
 		if (await fileExists(candidate)) {
 			return candidate;
 		}
@@ -41,11 +40,10 @@ async function findWorkspaceCli(): Promise<string | undefined> {
 }
 
 async function findCliNearFile(filePath: string): Promise<string | undefined> {
-	const executableName = process.platform === 'win32' ? 'lupa.exe' : 'lupa';
 	let directory = path.dirname(filePath);
 
 	for (let depth = 0; depth < 8; depth += 1) {
-		const candidate = path.join(directory, executableName);
+		const candidate = path.join(directory, CLI_EXECUTABLE);
 		if (await fileExists(candidate)) {
 			return candidate;
 		}

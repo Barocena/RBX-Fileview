@@ -17,6 +17,14 @@ function pathsEqual(left: vscode.Uri, right: vscode.Uri): boolean {
 	return left.fsPath.toLowerCase() === right.fsPath.toLowerCase();
 }
 
+function uriPathVariants(uri: vscode.Uri): vscode.Uri[] {
+	if (isLupaUri(uri)) {
+		return [uri, fromLupaUri(uri)];
+	}
+
+	return [uri];
+}
+
 export function isInDiffContext(fileUri?: vscode.Uri): boolean {
 	if (diffOperationDepth > 0) {
 		return true;
@@ -33,16 +41,13 @@ export function isInDiffContext(fileUri?: vscode.Uri): boolean {
 			}
 
 			const { original, modified } = tab.input;
-			const candidates = [original, modified, isLupaUri(original) ? fromLupaUri(original) : original];
 
-			for (const candidate of candidates) {
-				if (pathsEqual(candidate, fileUri)) {
-					return true;
+			for (const side of [original, modified]) {
+				for (const candidate of uriPathVariants(side)) {
+					if (pathsEqual(candidate, fileUri)) {
+						return true;
+					}
 				}
-			}
-
-			if (isLupaUri(modified) && pathsEqual(fromLupaUri(modified), fileUri)) {
-				return true;
 			}
 		}
 	}

@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { errorMessage } from './errorMessage';
 import { dumpRobloxFileAtRef } from './gitRefDump';
 import { fromLupaUri, getLupaGitRef, isLupaUri, isRobloxFile, LUPA_SCHEME, toLupaUri } from './lupaUri';
 
@@ -32,8 +33,7 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 			this.output?.appendLine(`Dump ok: ${sourceUri.fsPath} (${result.stdout.length} chars)`);
 			return result.stdout;
 		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			this.output?.appendLine(`Dump failed: ${message}`);
+			this.output?.appendLine(`Dump failed: ${errorMessage(error)}`);
 			throw error;
 		}
 	}
@@ -99,6 +99,10 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 
 		watcher.onDidChange(refresh);
 		watcher.onDidCreate(refresh);
+		watcher.onDidDelete(() => {
+			watcher.dispose();
+			this.watchers.delete(key);
+		});
 
 		this.watchers.set(key, watcher);
 	}

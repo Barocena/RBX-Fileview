@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { errorMessage } from './errorMessage';
 import { isInDiffContext } from './diffGuard';
 import type { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
 import { isLupaUri, normalizeRobloxFileUri } from './lupaUri';
@@ -130,8 +131,7 @@ export async function routeRobloxFileOpen(
 
 		void schedulePlaceholderSweep(normalized, intent);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		output.appendLine(`Roblox open routing failed: ${message}`);
+		output.appendLine(`Roblox open routing failed: ${errorMessage(error)}`);
 	} finally {
 		setTimeout(() => {
 			handledFiles.delete(key);

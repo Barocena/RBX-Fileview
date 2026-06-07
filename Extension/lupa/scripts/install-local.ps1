@@ -24,7 +24,7 @@ try {
 	& $cursorCmd --install-extension $vsixPath --force
 
 	Write-Host ""
-	Write-Host "Done. Reload Cursor (Ctrl+Shift+P -> Developer: Reload Window), then open a .rbxm file."
+	Write-Host "Done. Reload IDE (Ctrl+Shift+P -> Developer: Reload Window), then open a .rbxm file."
 }
 finally {
 	Pop-Location
