@@ -1,6 +1,6 @@
 # Lupa VS Code Extension
 
-View Roblox place and model files (`.rbxl`, `.rbxlx`, `.rbxm`, `.rbxmx`) as a human-readable YAML or ASCII tree dump powered by the Lupa CLI.
+View Roblox place and model files (`.rbxl`, `.rbxlx`, `.rbxm`, `.rbxmx`) as a human-readable YAML dump powered by the Lupa CLI.
 
 ## Requirements
 
@@ -79,7 +79,6 @@ lune build Out/Bundle.luau -o lupa.exe
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `lupa.cliPath` | `lupa` | Path to the lupa executable |
-| `lupa.dumpFormat` | `yaml` | `yaml` or `tree` output format |
 | `lupa.maxDepth` | `null` | Optional depth limit for large files |
 | `lupa.includeFullProperties` | `false` | Pass `--full` to include default properties |
 | `lupa.setupGitDiff` | `true` | Configure git textconv for YAML diffs in Source Control |
@@ -110,7 +109,7 @@ Roblox files are binary, so Lupa intercepts the default open and redirects to a 
 When you open a file, the extension runs:
 
 ```powershell
-lupa dump <file> --format yaml --stats
+lupa dump <file> --stats
 ```
 
 Dump stats appear as `#` comments at the top. External file changes are detected and the open document refreshes automatically.

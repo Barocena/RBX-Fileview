@@ -5,12 +5,10 @@ local stdio = require("@lune/stdio")
 local Load = require("@self/lib/load")
 local Tree = require("@self/lib/tree")
 local YamlFormat = require("@self/lib/format/yaml")
-local TreeFormat = require("@self/lib/format/tree")
 
 export type DumpOptions = {
 	filePath: string?,
 	outputPath: string?,
-	format: "yaml" | "tree",
 	full: boolean,
 	includeProperties: boolean,
 	maxDepth: number?,
@@ -24,11 +22,10 @@ local function printHelp()
 	print("")
 	print("Options:")
 	print("  -o, --output <path>     Write output to file (default: stdout)")
-	print("  --format yaml|tree      Output format (default: yaml)")
 	print("  --full                  Include default-valued properties")
 	print("  --max-depth <n>         Limit traversal depth")
 	print("  --properties            Include properties (default)")
-	print("  --no-properties         Tree structure only")
+	print("  --no-properties         Instance structure only")
 	print("  --stats                 Print instance counts to stderr")
 	print("  -h, --help              Show this help message")
 end
@@ -37,7 +34,6 @@ local function parseArgs(args: { string }): DumpOptions
 	local options: DumpOptions = {
 		filePath = nil,
 		outputPath = nil,
-		format = "yaml",
 		full = false,
 		includeProperties = true,
 		maxDepth = nil,
@@ -57,13 +53,6 @@ local function parseArgs(args: { string }): DumpOptions
 			if not options.outputPath then
 				error("Missing value for --output")
 			end
-		elseif arg == "--format" then
-			index += 1
-			local format = args[index]
-			if format ~= "yaml" and format ~= "tree" then
-				error(`Invalid format "{format}" (expected yaml or tree)`)
-			end
-			options.format = format
 		elseif arg == "--full" then
 			options.full = true
 		elseif arg == "--max-depth" then
@@ -79,6 +68,8 @@ local function parseArgs(args: { string }): DumpOptions
 			options.includeProperties = false
 		elseif arg == "--stats" then
 			options.stats = true
+		elseif arg == "--format" then
+			error("The --format option was removed. Lupa dump output is YAML only.")
 		elseif arg:sub(1, 1) == "-" then
 			error(`Unknown option: {arg}`)
 		else
@@ -125,12 +116,7 @@ function Dump.run(args: { string })
 		treeResult = Tree.buildModel(loaded.roots, treeOptions)
 	end
 
-	local output
-	if options.format == "yaml" then
-		output = YamlFormat.encode(treeResult)
-	else
-		output = TreeFormat.encode(treeResult)
-	end
+	local output = YamlFormat.encode(treeResult)
 
 	if options.stats then
 		stdio.ewrite(

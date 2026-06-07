@@ -169,15 +169,6 @@
           "default": "lupa",
           "description": "Path to the lupa CLI executable. Defaults to lupa on PATH, or lupa.exe in the workspace root."
         },
-        "lupa.dumpFormat": {
-          "type": "string",
-          "enum": [
-            "yaml",
-            "tree"
-          ],
-          "default": "yaml",
-          "description": "Output format passed to lupa dump."
-        },
         "lupa.maxDepth": {
           "type": [
             "number",

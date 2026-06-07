@@ -6,15 +6,12 @@ import * as vscode from 'vscode';
 
 const execFileAsync = promisify(execFile);
 
-export type DumpFormat = 'yaml' | 'tree';
-
 export interface DumpResult {
 	stdout: string;
 	stderr: string;
 }
 
 export interface DumpOptions {
-	format?: DumpFormat;
 	maxDepth?: number;
 	includeProperties?: boolean;
 	full?: boolean;
@@ -87,12 +84,11 @@ export async function resolveCliPath(filePath?: string): Promise<string> {
 
 export function buildDumpArgs(filePath: string, options: DumpOptions = {}): string[] {
 	const config = vscode.workspace.getConfiguration('lupa');
-	const format = options.format ?? config.get<DumpFormat>('dumpFormat', 'yaml');
 	const maxDepth = options.maxDepth ?? config.get<number | null>('maxDepth', null);
 	const full = options.full ?? config.get<boolean>('includeFullProperties', false);
 	const includeProperties = options.includeProperties ?? true;
 
-	const args = ['dump', filePath, '--format', format, '--stats'];
+	const args = ['dump', filePath, '--stats'];
 
 	if (maxDepth !== null && maxDepth !== undefined && !Number.isNaN(maxDepth)) {
 		args.push('--max-depth', String(maxDepth));

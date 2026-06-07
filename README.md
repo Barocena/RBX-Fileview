@@ -30,7 +30,7 @@ lune run Out/Bundle.luau dump Test/sample.rbxl
 After building `lupa.exe`:
 
 ```powershell
-lupa dump Test/sample.rbxm --format tree
+lupa dump Test/sample.rbxm
 lupa dump Test/sample.rbxl -o place.yaml --stats
 lupa dump Test/sample.rbxl --max-depth 2 --no-properties
 lupa dump Test/Crossroads_2.rbxl --max-depth 2

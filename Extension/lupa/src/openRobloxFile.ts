@@ -6,11 +6,8 @@ export async function applyDumpLanguage(document: vscode.TextDocument): Promise<
 		return;
 	}
 
-	const format = vscode.workspace.getConfiguration('lupa').get<'yaml' | 'tree'>('dumpFormat', 'yaml');
-	const languageId = format === 'yaml' ? 'yaml' : 'plaintext';
-
-	if (document.languageId !== languageId) {
-		await vscode.languages.setTextDocumentLanguage(document, languageId);
+	if (document.languageId !== 'yaml') {
+		await vscode.languages.setTextDocumentLanguage(document, 'yaml');
 	}
 }
 
