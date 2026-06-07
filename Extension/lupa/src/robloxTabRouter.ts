@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { errorMessage } from './errorMessage';
 import { isInDiffContext } from './diffGuard';
 import type { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
-import { isLupaUri, normalizeRobloxFileUri } from './lupaUri';
+import { isLupaUri, isRobloxFile, normalizeRobloxFileUri } from './lupaUri';
 import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
 import {
 	closePlaceholderRobloxTabs,
@@ -37,6 +37,18 @@ function robloxFileFromDiffTab(tab: vscode.Tab): vscode.Uri | undefined {
 	);
 }
 
+function robloxFileFromCustomTab(tab: vscode.Tab): vscode.Uri | undefined {
+	if (!(tab.input instanceof vscode.TabInputCustom)) {
+		return undefined;
+	}
+
+	if (!isRobloxFile(tab.input.uri)) {
+		return undefined;
+	}
+
+	return normalizeRobloxFileUri(tab.input.uri);
+}
+
 async function sweepPlaceholderTabs(fileUri: vscode.Uri, intent: RobloxOpenIntent): Promise<void> {
 	await closePlaceholderRobloxTabs(fileUri, {
 		single: intent === 'explorer',
@@ -46,7 +58,7 @@ async function sweepPlaceholderTabs(fileUri: vscode.Uri, intent: RobloxOpenInten
 }
 
 async function schedulePlaceholderSweep(fileUri: vscode.Uri, intent: RobloxOpenIntent): Promise<void> {
-	for (const delay of [0, 75, 200]) {
+	for (const delay of [0, 75, 200, 400]) {
 		if (delay > 0) {
 			await new Promise((resolve) => setTimeout(resolve, delay));
 		}
@@ -92,11 +104,12 @@ export async function routeRobloxFileOpen(
 	const normalized = normalizeRobloxFileUri(fileUri);
 	const key = robloxFileKey(normalized);
 
-	if (handledFiles.has(key)) {
+	// Always refocus an existing Lupa tab — even during the new-open debounce window.
+	if (await focusExistingView(normalized, intent, textProvider, options?.sourceTab)) {
 		return;
 	}
 
-	if (await focusExistingView(normalized, intent, textProvider, options?.sourceTab)) {
+	if (handledFiles.has(key)) {
 		return;
 	}
 
@@ -156,6 +169,16 @@ export function setupRobloxTabRouter(
 				}
 
 				void routeRobloxFileOpen(fileUri, output, textProvider, { intent: 'scmDiff', sourceTab: tab });
+				continue;
+			}
+
+			if (tab.input instanceof vscode.TabInputCustom) {
+				const fileUri = robloxFileFromCustomTab(tab);
+				if (!fileUri) {
+					continue;
+				}
+
+				void routeRobloxFileOpen(fileUri, output, textProvider, { intent: 'explorer', sourceTab: tab });
 				continue;
 			}
 

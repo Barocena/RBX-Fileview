@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
-import { normalizeRobloxFileUri } from './lupaUri';
+import { isRobloxFile, normalizeRobloxFileUri } from './lupaUri';
+import { closePlaceholderRobloxTabs } from './robloxTabs';
 import { openLupaDocument } from './openRobloxFile';
 
 class RobloxCustomDocument implements vscode.CustomDocument {
@@ -36,9 +37,20 @@ export class RobloxCustomEditorProvider implements vscode.CustomReadonlyEditorPr
 		_token: vscode.CancellationToken,
 	): Promise<void> {
 		this.output.appendLine(`Custom editor redirecting to Lupa text view: ${document.uri.fsPath}`);
-		await openLupaDocument(document.uri, this.output, undefined, this.textProvider);
-		setTimeout(() => {
-			webviewPanel.dispose();
-		}, 0);
+
+		await openLupaDocument(
+			document.uri,
+			this.output,
+			{ viewColumn: webviewPanel.viewColumn, preview: false },
+			this.textProvider,
+		);
+
+		// Close the custom-editor placeholder tab instead of disposing the webview directly.
+		// webviewPanel.dispose() races VS Code setup and causes EOF write errors in the window log.
+		await closePlaceholderRobloxTabs(document.uri, {
+			single: false,
+			diff: false,
+			custom: true,
+		});
 	}
 }
