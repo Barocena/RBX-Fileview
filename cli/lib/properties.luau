@@ -8,6 +8,11 @@ export type PropertyOptions = {
 	pathMap: { [Instance]: string },
 }
 
+export type CollectedProperties = {
+	props: { [string]: any },
+	propKeys: { string },
+}
+
 local Properties = {}
 
 local SKIP_PROPERTIES = {
@@ -24,12 +29,32 @@ local SKIP_TAGS = {
 	Hidden = true,
 }
 
-local classPropertyCache: { [string]: { [string]: roblox.DatabaseProperty } } = {}
-local runtimeDefaultCache: { [string]: { [string]: any } } = {}
+type PropertyEntry = {
+	name: string,
+	datatype: string,
+}
 
-local function getClassProperties(className: string): { [string]: roblox.DatabaseProperty }
-	if classPropertyCache[className] then
-		return classPropertyCache[className]
+type ClassCache = {
+	entries: { PropertyEntry },
+	defaults: { [string]: any },
+}
+
+local classCache: { [string]: ClassCache } = {}
+
+local function shouldSkipProperty(property: roblox.DatabaseProperty): boolean
+	for _, tag in property.Tags do
+		if SKIP_TAGS[tag] then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function buildClassCache(className: string): ClassCache
+	local cached = classCache[className]
+	if cached then
+		return cached
 	end
 
 	local db = roblox.getReflectionDatabase()
@@ -48,129 +73,117 @@ local function getClassProperties(className: string): { [string]: roblox.Databas
 		end
 	end
 
-	classPropertyCache[className] = merged
-	return merged
-end
+	local entries: { PropertyEntry } = {}
+	for name, property in merged do
+		if SKIP_PROPERTIES[name] or shouldSkipProperty(property) then
+			continue
+		end
 
-local function getRuntimeDefaults(className: string): { [string]: any }
-	if runtimeDefaultCache[className] then
-		return runtimeDefaultCache[className]
+		table.insert(entries, {
+			name = name,
+			datatype = property.Datatype,
+		})
 	end
 
-	local db = roblox.getReflectionDatabase()
-	if not db:GetClass(className) then
-		return {}
-	end
+	table.sort(entries, function(left: PropertyEntry, right: PropertyEntry): boolean
+		return left.name < right.name
+	end)
 
 	local defaults: { [string]: any } = {}
+	local readableEntries: { PropertyEntry } = {}
 	local ok, instance = pcall(function()
 		return roblox.Instance.new(className)
 	end)
 
-	if not ok then
-		runtimeDefaultCache[className] = defaults
-		return defaults
-	end
+	if ok then
+		local object = instance :: any
+		for _, entry in entries do
+			local readOk, value = pcall(function()
+				return object[entry.name]
+			end)
 
-	for propertyName in getClassProperties(className) do
-		local readOk, value = pcall(function()
-			return (instance :: any)[propertyName]
-		end)
-
-		if readOk then
-			defaults[propertyName] = value
+			if readOk then
+				defaults[entry.name] = value
+				table.insert(readableEntries, entry)
+			end
 		end
+	else
+		readableEntries = entries
 	end
 
-	runtimeDefaultCache[className] = defaults
-	return defaults
+	cached = {
+		entries = readableEntries,
+		defaults = defaults,
+	}
+	classCache[className] = cached
+	return cached
 end
 
-local function shouldSkipProperty(property: roblox.DatabaseProperty): boolean
-	for _, tag in property.Tags do
-		if SKIP_TAGS[tag] then
-			return true
-		end
+local function isEmptyRawValue(value: any): boolean
+	return value == nil
+end
+
+local function isEmptyDumpValue(dumpValue: any): boolean
+	if dumpValue == nil then
+		return true
+	end
+
+	if type(dumpValue) == "table" and #dumpValue == 5 and dumpValue[1] == nil then
+		return true
 	end
 
 	return false
 end
 
-local function readProperty(instance: Instance, propertyName: string): (boolean, any)
-	local object = instance :: any
-	local ok, value = pcall(function()
-		return object[propertyName]
-	end)
-
-	return ok, value
-end
-
-local function isEmptyValue(value: any, serialized: any): boolean
-	if value == nil then
-		return true
-	end
-
-	if type(serialized) == "table" and serialized.type == "Ref" and serialized.value == nil then
-		return true
-	end
-
-	if type(serialized) == "table" and serialized.type == "PhysicalProperties" then
-		return serialized.density == nil
-	end
-
-	return false
-end
-
-function Properties.collect(instance: Instance, options: PropertyOptions): { [string]: any }
+function Properties.collect(instance: Instance, options: PropertyOptions): CollectedProperties?
 	if not options.includeProperties then
-		return {}
+		return nil
 	end
 
-	local properties = getClassProperties(instance.ClassName)
-	local defaults = getRuntimeDefaults(instance.ClassName)
-	local collected: { [string]: any } = {}
+	local cache = buildClassCache(instance.ClassName)
+	local object = instance :: any
+	local props: { [string]: any } = {}
+	local propKeys: { string } = {}
 	local context: Values.SerializeContext = {
 		pathMap = options.pathMap,
 		full = options.full,
 	}
 
-	for propertyName, property in properties do
-		if SKIP_PROPERTIES[propertyName] or shouldSkipProperty(property) then
+	for _, entry in cache.entries do
+		if not options.includeSource and entry.name == "Source" then
 			continue
 		end
 
-		if not options.includeSource and propertyName == "Source" then
+		local readOk, value = pcall(function()
+			return object[entry.name]
+		end)
+
+		if not readOk or isEmptyRawValue(value) then
 			continue
 		end
 
-		local ok, value = readProperty(instance, propertyName)
-		if not ok or isEmptyValue(value, value) then
-			continue
-		end
-
-		local defaultValue = defaults[propertyName]
+		local defaultValue = cache.defaults[entry.name]
 		if not options.full and defaultValue ~= nil and Values.equals(value, defaultValue) then
 			continue
 		end
 
-		local serialized = Values.serialize(value, property.Datatype, context)
-		if serialized == nil or isEmptyValue(value, serialized) then
+		local dumpValue = Values.toDumpValue(value, entry.datatype, context)
+		if isEmptyDumpValue(dumpValue) then
 			continue
 		end
 
-		collected[propertyName] = serialized
+		table.insert(propKeys, entry.name)
+		props[entry.name] = dumpValue
 	end
 
-	return collected
-end
-
-function Properties.sortKeys(properties: { [string]: any }): { string }
-	local keys = {}
-	for key in properties do
-		table.insert(keys, key)
+	if #propKeys == 0 then
+		return nil
 	end
-	table.sort(keys)
-	return keys
+
+	return {
+		props = props,
+		propKeys = propKeys,
+	}
 end
 
 return Properties

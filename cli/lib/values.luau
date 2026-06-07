@@ -13,6 +13,36 @@ local function isInstance(value: any): boolean
 	return typeof(value) == "Instance"
 end
 
+local function formatInstancePath(path: string): string
+	if path == "/" then
+		return ""
+	end
+
+	if path:sub(1, 1) == "/" then
+		return path:sub(2)
+	end
+
+	return path
+end
+
+local function resolveInstancePath(value: Instance, context: SerializeContext): string
+	local path = context.pathMap[value]
+	if path then
+		return formatInstancePath(path)
+	end
+
+	local fullName = value:GetFullName()
+	if fullName == "" or fullName == "Game" then
+		return ""
+	end
+
+	if fullName:sub(1, 5) == "Game." then
+		return fullName:sub(6):gsub("%.", "/")
+	end
+
+	return fullName:gsub("%.", "/")
+end
+
 function Values.equals(a: any, b: any): boolean
 	if a == b then
 		return true
@@ -118,7 +148,15 @@ local function encodeBase64(data: string): string
 	return table.concat(output)
 end
 
-function Values.serialize(value: any, datatype: string, context: SerializeContext): any
+local function dumpBinaryData(data: string): any
+	if #data > BINARY_HASH_THRESHOLD then
+		return { #data, serde.hash("sha256", data) }
+	end
+
+	return encodeBase64(data)
+end
+
+function Values.toDumpValue(value: any, datatype: string, context: SerializeContext): any
 	if value == nil then
 		return nil
 	end
@@ -129,219 +167,108 @@ function Values.serialize(value: any, datatype: string, context: SerializeContex
 
 	if typeof(value) == "string" then
 		if datatype == "BinaryString" then
-			if #value > BINARY_HASH_THRESHOLD then
-				return {
-					type = "BinaryString",
-					encoding = "hash",
-					value = serde.hash("sha256", value),
-					size = #value,
-				}
-			end
-
-			return {
-				type = "BinaryString",
-				encoding = "base64",
-				value = encodeBase64(value),
-			}
-		end
-
-		if datatype == "Content" or datatype == "ContentId" then
-			return {
-				type = "Content",
-				uri = value,
-			}
+			return dumpBinaryData(value)
 		end
 
 		return value
 	end
 
 	if typeof(value) == "Vector3" then
-		return {
-			type = "Vector3",
-			x = value.X,
-			y = value.Y,
-			z = value.Z,
-		}
+		return { value.X, value.Y, value.Z }
 	end
 
 	if typeof(value) == "Vector2" then
-		return {
-			type = "Vector2",
-			x = value.X,
-			y = value.Y,
-		}
+		return { value.X, value.Y }
 	end
 
 	if typeof(value) == "Color3" then
-		return {
-			type = "Color3",
-			r = value.R,
-			g = value.G,
-			b = value.B,
-		}
+		return { value.R, value.G, value.B }
 	end
 
 	if typeof(value) == "UDim" then
-		return {
-			type = "UDim",
-			scale = value.Scale,
-			offset = value.Offset,
-		}
+		return { value.Scale, value.Offset }
 	end
 
 	if typeof(value) == "UDim2" then
 		return {
-			type = "UDim2",
-			x = Values.serialize(value.X, "UDim", context),
-			y = Values.serialize(value.Y, "UDim", context),
+			value.X.Scale,
+			value.X.Offset,
+			value.Y.Scale,
+			value.Y.Offset,
 		}
 	end
 
 	if typeof(value) == "CFrame" then
 		local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = value:GetComponents()
-		return {
-			type = "CFrame",
-			position = { x, y, z },
-			orientation = { r00, r01, r02, r10, r11, r12, r20, r21, r22 },
-		}
+		return { x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 }
 	end
 
 	if typeof(value) == "EnumItem" then
-		return {
-			type = "Enum",
-			enum = tostring(value.EnumType),
-			value = value.Name,
-		}
+		return value.Name
 	end
 
 	if typeof(value) == "BrickColor" then
-		return {
-			type = "BrickColor",
-			name = value.Name,
-			number = value.Number,
-		}
+		return value.Number
 	end
 
 	if typeof(value) == "UniqueId" then
-		return {
-			type = "UniqueId",
-			value = tostring(value),
-		}
+		return tostring(value)
 	end
 
 	if typeof(value) == "NumberRange" then
-		return {
-			type = "NumberRange",
-			min = value.Min,
-			max = value.Max,
-		}
+		return { value.Min, value.Max }
 	end
 
 	if typeof(value) == "NumberSequence" then
-		local keypoints = {}
-		for _, keypoint in value.Keypoints do
-			table.insert(keypoints, {
-				time = keypoint.Time,
-				value = keypoint.Value,
-				envelope = keypoint.Envelope,
-			})
+		local keypoints = table.create(#value.Keypoints)
+		for index, keypoint in value.Keypoints do
+			keypoints[index] = { keypoint.Time, keypoint.Value, keypoint.Envelope }
 		end
-		return {
-			type = "NumberSequence",
-			keypoints = keypoints,
-		}
+		return keypoints
 	end
 
 	if typeof(value) == "ColorSequence" then
-		local keypoints = {}
-		for _, keypoint in value.Keypoints do
-			table.insert(keypoints, {
-				time = keypoint.Time,
-				color = Values.serialize(keypoint.Value, "Color3", context),
-			})
+		local keypoints = table.create(#value.Keypoints)
+		for index, keypoint in value.Keypoints do
+			local color = keypoint.Value
+			keypoints[index] = { keypoint.Time, color.R, color.G, color.B }
 		end
-		return {
-			type = "ColorSequence",
-			keypoints = keypoints,
-		}
+		return keypoints
 	end
 
 	if typeof(value) == "Rect" then
-		return {
-			type = "Rect",
-			min = Values.serialize(value.Min, "Vector2", context),
-			max = Values.serialize(value.Max, "Vector2", context),
-		}
+		local min = value.Min
+		local max = value.Max
+		return { min.X, min.Y, max.X, max.Y }
 	end
 
 	if typeof(value) == "PhysicalProperties" then
 		return {
-			type = "PhysicalProperties",
-			density = value.Density,
-			friction = value.Friction,
-			elasticity = value.Elasticity,
-			frictionWeight = value.FrictionWeight,
-			elasticityWeight = value.ElasticityWeight,
+			value.Density,
+			value.Friction,
+			value.Elasticity,
+			value.FrictionWeight,
+			value.ElasticityWeight,
 		}
 	end
 
 	if isInstance(value) then
-		local path = context.pathMap[value]
-		if path then
-			return {
-				type = "Instance",
-				path = path,
-			}
-		end
-
-		local fullName = value:GetFullName()
-		if fullName == "" or fullName == "Game" then
-			path = "/"
-		elseif fullName:sub(1, 5) == "Game." then
-			path = "/" .. fullName:sub(6):gsub("%.", "/")
-		else
-			path = "/" .. fullName:gsub("%.", "/")
-		end
-
-		return {
-			type = "Instance",
-			path = path,
-		}
+		return resolveInstancePath(value, context)
 	end
 
 	if typeof(value) == "buffer" then
-		local data = buffer.tostring(value)
-		if #data > BINARY_HASH_THRESHOLD then
-			return {
-				type = "BinaryString",
-				encoding = "hash",
-				value = serde.hash("sha256", data),
-				size = #data,
-			}
-		end
-
-		return {
-			type = "BinaryString",
-			encoding = "base64",
-			value = encodeBase64(data),
-		}
+		return dumpBinaryData(buffer.tostring(value))
 	end
 
 	if type(value) == "table" then
-		local items = {}
+		local items = table.create(#value)
 		for index, item in value do
-			items[index] = Values.serialize(item, datatype, context)
+			items[index] = Values.toDumpValue(item, datatype, context)
 		end
-		return {
-			type = datatype,
-			value = items,
-		}
+		return items
 	end
 
-	return {
-		type = datatype,
-		value = tostring(value),
-	}
+	return tostring(value)
 end
 
 return Values

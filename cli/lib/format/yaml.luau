@@ -1,6 +1,16 @@
-local Compact = require("./compact")
+local StringBuffer = require("../stringBuffer")
 
 local YamlFormat = {}
+
+local INDENT_CACHE: { string } = { "" }
+
+local function indentFor(level: number): string
+	while #INDENT_CACHE <= level do
+		table.insert(INDENT_CACHE, string.rep("  ", #INDENT_CACHE))
+	end
+
+	return INDENT_CACHE[level + 1]
+end
 
 local function escapeNameForLabel(name: string): string
 	return name:gsub("\\", "\\\\"):gsub('"', '\\"')
@@ -62,85 +72,107 @@ local function isArray(value: any): boolean
 	return count == length
 end
 
-local function formatScalar(value: any): string
+local function appendScalar(buf: StringBuffer.StringBuffer, value: any): ()
 	if type(value) == "boolean" or type(value) == "number" then
 		if type(value) == "number" then
 			if value == math.floor(value) then
-				return tostring(value)
+				StringBuffer.append(buf, tostring(value))
+			else
+				StringBuffer.append(buf, string.format("%.6g", value))
 			end
-			return string.format("%.6g", value)
+			return
 		end
-		return tostring(value)
+
+		StringBuffer.append(buf, tostring(value))
+		return
 	end
 
 	if type(value) == "string" then
-		return escapeString(value) or '""'
+		local escaped = escapeString(value)
+		StringBuffer.append(buf, escaped or '""')
+		return
 	end
 
-	return tostring(value)
+	StringBuffer.append(buf, tostring(value))
 end
 
-local function encodeArrayValue(value: { any }): string
-	local parts = table.create(#value)
-	for _, item in value do
+local function appendArray(buf: StringBuffer.StringBuffer, value: { any }): ()
+	StringBuffer.append(buf, "[")
+
+	for index, item in value do
+		if index > 1 then
+			StringBuffer.append(buf, ", ")
+		end
+
 		if isArray(item) then
-			table.insert(parts, encodeArrayValue(item))
+			appendArray(buf, item)
 		else
-			table.insert(parts, formatScalar(item))
+			appendScalar(buf, item)
 		end
 	end
-	return `[{table.concat(parts, ", ")}]`
+
+	StringBuffer.append(buf, "]")
 end
 
-local function encodeScalarLines(value: any, indentLevel: number): { string }
-	local indent = string.rep("  ", indentLevel)
-
+local function appendScalarValue(buf: StringBuffer.StringBuffer, value: any, indentLevel: number): ()
 	if isArray(value) then
-		return { encodeArrayValue(value) }
-	end
-
-	if type(value) == "boolean" or type(value) == "number" then
-		return { formatScalar(value) }
+		appendArray(buf, value)
+		return
 	end
 
 	if type(value) == "string" then
 		local escaped = escapeString(value)
 		if escaped then
-			return { escaped }
+			StringBuffer.append(buf, escaped)
+			return
 		end
 
-		local lines = { "|" }
+		StringBuffer.append(buf, "|")
+		local blockIndent = indentFor(indentLevel + 1)
 		for line in string.gmatch(value, "([^\n]*)\n?") do
 			if line ~= "" or string.find(value, "\n", 1, true) then
-				table.insert(lines, indent .. "  " .. line)
+				StringBuffer.append(buf, "\n")
+				StringBuffer.append(buf, blockIndent)
+				StringBuffer.append(buf, line)
 			end
 		end
-		return lines
+		return
 	end
 
-	return { tostring(value) }
+	appendScalar(buf, value)
 end
 
-local function encodePropertyBlock(props: { [string]: any }, indentLevel: number): { string }
-	local lines = {}
-	local indent = string.rep("  ", indentLevel)
-	local propertyKeys = {}
+local function appendPropertyBlock(
+	buf: StringBuffer.StringBuffer,
+	props: { [string]: any },
+	indentLevel: number,
+	propertyKeys: { string }?
+): ()
+	local indent = indentFor(indentLevel)
+	local keys = propertyKeys
 
-	for propertyKey in props do
-		table.insert(propertyKeys, tostring(propertyKey))
-	end
-	table.sort(propertyKeys)
-
-	for _, propertyKey in propertyKeys do
-		local propertyValue = props[propertyKey]
-		local propertyLines = encodeScalarLines(propertyValue, indentLevel + 1)
-		table.insert(lines, `{indent}{encodeMappingKey(propertyKey)}: {propertyLines[1]}`)
-		for lineIndex = 2, #propertyLines do
-			table.insert(lines, `{indent}  {propertyLines[lineIndex]}`)
+	if not keys then
+		keys = {}
+		for propertyKey in props do
+			table.insert(keys, tostring(propertyKey))
 		end
+		table.sort(keys)
 	end
 
-	return lines
+	for _, propertyKey in keys do
+		StringBuffer.append(buf, indent)
+		StringBuffer.append(buf, encodeMappingKey(propertyKey))
+		StringBuffer.append(buf, ": ")
+
+		local propertyValue = props[propertyKey]
+		if type(propertyValue) == "string" and escapeString(propertyValue) == nil then
+			appendScalarValue(buf, propertyValue, indentLevel + 1)
+		else
+			appendScalarValue(buf, propertyValue, indentLevel)
+		end
+
+		StringBuffer.append(buf, "\n")
+	end
 end
 
 local function countDuplicateLabels(children: { { [string]: any } }): { [string]: number }
@@ -152,30 +184,34 @@ local function countDuplicateLabels(children: { { [string]: any } }): { [string]
 	return counts
 end
 
-local function encodeTreeNode(
+local function appendTreeNode(
+	buf: StringBuffer.StringBuffer,
 	node: { [string]: any },
 	indentLevel: number,
 	asArrayItem: boolean,
 	duplicateIndex: number?,
 	duplicateTotal: number?
-): { string }
-	local lines = {}
-	local indent = string.rep("  ", indentLevel)
+): ()
+	local indent = indentFor(indentLevel)
 	local header = formatNodeHeader(node.className, node.name, duplicateIndex, duplicateTotal)
 
 	if asArrayItem then
-		table.insert(lines, `{indent}- {header}:`)
+		StringBuffer.append(buf, indent)
+		StringBuffer.append(buf, "- ")
+		StringBuffer.append(buf, header)
+		StringBuffer.append(buf, ":\n")
 	else
-		table.insert(lines, `{indent}{header}:`)
+		StringBuffer.append(buf, indent)
+		StringBuffer.append(buf, header)
+		StringBuffer.append(buf, ":\n")
 	end
 
-	local bodyIndent = string.rep("  ", indentLevel + 1)
+	local bodyIndent = indentFor(indentLevel + 1)
 
 	if node.props then
-		table.insert(lines, `{bodyIndent}props:`)
-		for _, line in encodePropertyBlock(node.props, indentLevel + 2) do
-			table.insert(lines, line)
-		end
+		StringBuffer.append(buf, bodyIndent)
+		StringBuffer.append(buf, "props:\n")
+		appendPropertyBlock(buf, node.props, indentLevel + 2, node.propKeys)
 	end
 
 	if node.children then
@@ -184,37 +220,32 @@ local function encodeTreeNode(
 
 		for _, child in node.children do
 			local label = formatNodeLabel(child.className, child.name)
-			local duplicateTotal = duplicateCounts[label]
-			local duplicateIndex = nil
+			local childDuplicateTotal = duplicateCounts[label]
+			local childDuplicateIndex = nil
 
-			if duplicateTotal > 1 then
+			if childDuplicateTotal > 1 then
 				duplicateIndexes[label] = (duplicateIndexes[label] or 0) + 1
-				duplicateIndex = duplicateIndexes[label]
+				childDuplicateIndex = duplicateIndexes[label]
 			end
 
-			for _, line in encodeTreeNode(child, indentLevel + 1, false, duplicateIndex, duplicateTotal) do
-				table.insert(lines, line)
-			end
+			appendTreeNode(buf, child, indentLevel + 1, false, childDuplicateIndex, childDuplicateTotal)
 		end
 	end
-
-	return lines
 end
 
 function YamlFormat.encode(treeResult)
-	local document = Compact.compactTree(treeResult)
-	local lines = {}
+	local instanceCount = treeResult.stats and treeResult.stats.instanceCount or 0
+	local initialCapacity = math.max(4096, instanceCount * 192)
+	local buf = StringBuffer.new(initialCapacity)
 
-	if document.root then
-		for _, line in encodeTreeNode(document.root, 0, false) do
-			table.insert(lines, line)
-		end
-	elseif document.roots then
-		local duplicateCounts = countDuplicateLabels(document.roots)
+	if treeResult.root then
+		appendTreeNode(buf, treeResult.root, 0, false)
+	elseif treeResult.roots then
+		local duplicateCounts = countDuplicateLabels(treeResult.roots)
 		local duplicateIndexes: { [string]: number } = {}
-		local useTopLevelArray = #document.roots > 1
+		local useTopLevelArray = #treeResult.roots > 1
 
-		for _, root in document.roots do
+		for _, root in treeResult.roots do
 			local label = formatNodeLabel(root.className, root.name)
 			local duplicateTotal = duplicateCounts[label]
 			local duplicateIndex = nil
@@ -224,13 +255,16 @@ function YamlFormat.encode(treeResult)
 				duplicateIndex = duplicateIndexes[label]
 			end
 
-			for _, line in encodeTreeNode(root, 0, useTopLevelArray, duplicateIndex, duplicateTotal) do
-				table.insert(lines, line)
-			end
+			appendTreeNode(buf, root, 0, useTopLevelArray, duplicateIndex, duplicateTotal)
 		end
 	end
 
-	return table.concat(lines, "\n")
+	local output = StringBuffer.finish(buf)
+	if #output > 0 and output:sub(-1) == "\n" then
+		return output:sub(1, -2)
+	end
+
+	return output
 end
 
 return YamlFormat

@@ -50,6 +50,19 @@
 			}
 		},
 		{
+			"label": "Benchmark Dump",
+			"type": "shell",
+			"command": "darklua process ./cli/Init.luau Out/Bundle.luau; lune run Out/Bundle.luau benchmark",
+			"group": "test",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": true,
+				"showReuseMessage": false
+			}
+		},
+		{
 			"label": "Install Extension Locally",
 			"type": "shell",
 			"command": "pnpm run install-local",

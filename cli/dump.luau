@@ -6,17 +6,66 @@ local Load = require("@self/lib/load")
 local Tree = require("@self/lib/tree")
 local YamlFormat = require("@self/lib/format/yaml")
 
-export type DumpOptions = {
+export type DumpRunOptions = {
+	full: boolean?,
+	includeProperties: boolean?,
+	includeSource: boolean?,
+	maxDepth: number?,
+}
+
+export type DumpCliOptions = DumpRunOptions & {
 	filePath: string?,
 	outputPath: string?,
-	full: boolean,
-	includeProperties: boolean,
-	includeSource: boolean,
-	maxDepth: number?,
 	stats: boolean,
 }
 
+export type DumpResult = {
+	output: string,
+	stats: Tree.TreeStats,
+}
+
 local Dump = {}
+
+local DEFAULT_RUN_OPTIONS: DumpRunOptions = {
+	full = false,
+	includeProperties = true,
+	includeSource = true,
+	maxDepth = nil,
+}
+
+local function resolveRunOptions(options: DumpRunOptions?): DumpRunOptions
+	return {
+		full = options and options.full ~= nil and options.full or DEFAULT_RUN_OPTIONS.full,
+		includeProperties = options and options.includeProperties ~= nil and options.includeProperties
+			or DEFAULT_RUN_OPTIONS.includeProperties,
+		includeSource = options and options.includeSource ~= nil and options.includeSource
+			or DEFAULT_RUN_OPTIONS.includeSource,
+		maxDepth = if options then options.maxDepth else DEFAULT_RUN_OPTIONS.maxDepth,
+	}
+end
+
+function Dump.dumpFile(filePath: string, options: DumpRunOptions?): DumpResult
+	local runOptions = resolveRunOptions(options)
+	local loaded = Load.loadFile(filePath)
+	local treeOptions: Tree.TreeOptions = {
+		full = runOptions.full :: boolean,
+		includeProperties = runOptions.includeProperties :: boolean,
+		includeSource = runOptions.includeSource :: boolean,
+		maxDepth = runOptions.maxDepth,
+	}
+
+	local treeResult
+	if loaded.kind == "place" then
+		treeResult = Tree.buildPlace(loaded.root, treeOptions)
+	else
+		treeResult = Tree.buildModel(loaded.roots, treeOptions)
+	end
+
+	return {
+		output = YamlFormat.encode(treeResult),
+		stats = treeResult.stats,
+	}
+end
 
 local function printHelp()
 	print(`Usage: lupa dump <file> [options]`)
@@ -32,8 +81,8 @@ local function printHelp()
 	print("  -h, --help              Show this help message")
 end
 
-local function parseArgs(args: { string }): DumpOptions
-	local options: DumpOptions = {
+local function parseArgs(args: { string }): DumpCliOptions
+	local options: DumpCliOptions = {
 		filePath = nil,
 		outputPath = nil,
 		full = false,
@@ -106,29 +155,15 @@ function Dump.run(args: { string })
 	end
 
 	local options = result
-
-	local loaded = Load.loadFile(options.filePath :: string)
-	local treeOptions: Tree.TreeOptions = {
-		full = options.full,
-		includeProperties = options.includeProperties,
-		includeSource = options.includeSource,
-		maxDepth = options.maxDepth,
-	}
-
-	local treeResult
-	if loaded.kind == "place" then
-		treeResult = Tree.buildPlace(loaded.root, treeOptions)
-	else
-		treeResult = Tree.buildModel(loaded.roots, treeOptions)
-	end
-
-	local output = YamlFormat.encode(treeResult)
+	local dumpResult = Dump.dumpFile(options.filePath :: string, options)
 
 	if options.stats then
 		stdio.ewrite(
-			`Instances: {treeResult.stats.instanceCount}, max depth: {treeResult.stats.maxDepthReached}\n`
+			`Instances: {dumpResult.stats.instanceCount}, max depth: {dumpResult.stats.maxDepthReached}\n`
 		)
 	end
+
+	local output = dumpResult.output
 
 	if options.outputPath then
 		fs.writeFile(options.outputPath, output)

@@ -11,8 +11,8 @@ export type TreeOptions = {
 export type TreeNode = {
 	className: string,
 	name: string,
-	path: string,
-	properties: { [string]: any }?,
+	props: { [string]: any }?,
+	propKeys: { string }?,
 	children: { TreeNode }?,
 }
 
@@ -51,27 +51,22 @@ local function buildNode(
 	stats.instanceCount += 1
 	stats.maxDepthReached = math.max(stats.maxDepthReached, depth)
 
-	local path = pathMap[instance] or Paths.fromFullName(instance:GetFullName())
 	local node: TreeNode = {
 		className = instance.ClassName,
 		name = instance.Name,
-		path = path,
 	}
 
 	if options.includeProperties then
-		local properties = Properties.collect(instance, {
+		local collected = Properties.collect(instance, {
 			full = options.full,
 			includeProperties = true,
 			includeSource = options.includeSource,
 			pathMap = pathMap,
 		})
 
-		if next(properties) ~= nil then
-			local sorted: { [string]: any } = {}
-			for _, key in Properties.sortKeys(properties) do
-				sorted[key] = properties[key]
-			end
-			node.properties = sorted
+		if collected then
+			node.props = collected.props
+			node.propKeys = collected.propKeys
 		end
 	end
 

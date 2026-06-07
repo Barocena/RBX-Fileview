@@ -68,6 +68,24 @@ lune run Test/generate_fixtures.luau
 lune run cli/Init.luau dump Test/sample.rbxl
 ```
 
+## Benchmark
+
+Time `dump` for every Roblox file in `Test/`:
+
+```powershell
+darklua process ./cli/Init.luau Out/Bundle.luau
+lune run Out/Bundle.luau benchmark
+```
+
+After building `lupa.exe`:
+
+```powershell
+lupa benchmark
+lupa benchmark Test --iterations 5 --warmup 2
+```
+
+Each file is warmed up once (to populate caches), then measured over several iterations. The report shows file size, instance count, output size, and min/median/max dump time.
+
 ## VS Code extension
 
 The extension lives in [`Extension/lupa`](Extension/lupa). It opens Roblox files as a read-only virtual text document and runs `lupa dump` to show the YAML output in the normal editor. It also configures git textconv so Source Control diffs and **Lupa: Compare Active File With...** show side-by-side YAML instead of binary.

@@ -38,4 +38,9 @@ if lower == "dump" then
 	return
 end
 
+if lower == "benchmark" then
+	require("@self/benchmark").run({ table.unpack(process.args, 2) })
+	return
+end
+
 showUnknownCommand(arg)
