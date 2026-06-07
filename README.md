@@ -49,11 +49,14 @@ lupa dump Test/Crossroads_2.rbxl --max-depth 2
 
 The default output is YAML with:
 
+- Instance lines like `- Part "Name":` or nested `Part "Name":` keys with a foldable `props:` block
+- Child instances appear directly under their parent (no `children:` wrapper)
 - Stable child ordering (`Name`, then `ClassName`)
 - Sorted property keys
 - Default property omission (use `--full` to include defaults)
-- Compact one-line Roblox values, e.g. `Vector3(10, 10, 10)`, `Enum.PartType.Ball`, `CFrame.new(...)`, `<Tree/Ball>` for instances
-- Instance paths like `/Workspace/Folder/Part` for references and diffs
+- Native YAML arrays for numeric types (Vector3, CFrame, Color3, etc.)
+- Short enum values (for example `Smooth` instead of `Enum.SurfaceType.Smooth`)
+- Instance references like `Tree_Pink/Ball`
 
 ## Test fixtures
 

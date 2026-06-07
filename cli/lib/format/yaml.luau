@@ -2,14 +2,24 @@ local Compact = require("./compact")
 
 local YamlFormat = {}
 
-local NODE_KEY_ORDER = { "className", "name", "path", "properties", "children" }
+local function escapeNameForLabel(name: string): string
+	return name:gsub("\\", "\\\\"):gsub('"', '\\"')
+end
 
-local function needsQuotes(key: string): boolean
-	return not string.match(key, "^[%w_]+$")
+local function formatNodeLabel(className: string, name: string): string
+	return `{className} "{escapeNameForLabel(name)}"`
+end
+
+local function formatNodeHeader(className: string, name: string, duplicateIndex: number?, duplicateTotal: number?): string
+	local label = formatNodeLabel(className, name)
+	if duplicateTotal and duplicateTotal > 1 and duplicateIndex then
+		return `{label} [{duplicateIndex}]`
+	end
+	return label
 end
 
 local function encodeMappingKey(key: string): string
-	if needsQuotes(key) then
+	if not string.match(key, "^[%w_]+$") then
 		return `'{key:gsub("'", "''")}'`
 	end
 	return key
@@ -31,7 +41,11 @@ local function escapeString(value: string): string?
 	return `"{value:gsub('"', '\\"')}"`
 end
 
-local function isArray(value: { any }): boolean
+local function isArray(value: any): boolean
+	if type(value) ~= "table" then
+		return false
+	end
+
 	local length = #value
 	if length == 0 then
 		return false
@@ -48,34 +62,41 @@ local function isArray(value: { any }): boolean
 	return count == length
 end
 
-local function isTreeNode(value: { [string]: any }): boolean
-	return type(value.className) == "string" and type(value.name) == "string" and type(value.path) == "string"
+local function formatScalar(value: any): string
+	if type(value) == "boolean" or type(value) == "number" then
+		if type(value) == "number" then
+			if value == math.floor(value) then
+				return tostring(value)
+			end
+			return string.format("%.6g", value)
+		end
+		return tostring(value)
+	end
+
+	if type(value) == "string" then
+		return escapeString(value) or '""'
+	end
+
+	return tostring(value)
 end
 
-local function orderedNodeKeys(value: { [string]: any }): { string }
-	if not isTreeNode(value) then
-		local keys = {}
-		for key in value do
-			table.insert(keys, tostring(key))
-		end
-		table.sort(keys)
-		return keys
+local function encodeInlineArray(value: { any }): string
+	local parts = table.create(#value)
+	for _, item in value do
+		table.insert(parts, formatScalar(item))
 	end
-
-	local keys = {}
-	for _, key in NODE_KEY_ORDER do
-		if value[key] ~= nil then
-			table.insert(keys, key)
-		end
-	end
-	return keys
+	return `[{table.concat(parts, ", ")}]`
 end
 
 local function encodeScalarLines(value: any, indentLevel: number): { string }
 	local indent = string.rep("  ", indentLevel)
 
+	if isArray(value) then
+		return { encodeInlineArray(value) }
+	end
+
 	if type(value) == "boolean" or type(value) == "number" then
-		return { tostring(value) }
+		return { formatScalar(value) }
 	end
 
 	if type(value) == "string" then
@@ -96,105 +117,78 @@ local function encodeScalarLines(value: any, indentLevel: number): { string }
 	return { tostring(value) }
 end
 
-local function encodeScalarBlock(value: any, indentLevel: number, keyPrefix: string, encodedKey: string): { string }
-	local scalarLines = encodeScalarLines(value, indentLevel + 1)
-	local lines = { `{keyPrefix}{encodedKey}: {scalarLines[1]}` }
-	local indent = string.rep("  ", indentLevel)
-	for lineIndex = 2, #scalarLines do
-		table.insert(lines, `{indent}  {scalarLines[lineIndex]}`)
-	end
-	return lines
-end
-
-local function encodeTreeNode(node: { [string]: any }, indentLevel: number, asArrayItem: boolean): { string }
+local function encodePropertyBlock(props: { [string]: any }, indentLevel: number): { string }
 	local lines = {}
-	local keys = orderedNodeKeys(node)
+	local indent = string.rep("  ", indentLevel)
+	local propertyKeys = {}
 
-	for index, key in keys do
-		local child = node[key]
-		local encodedKey = encodeMappingKey(key)
-		local itemPrefix = string.rep("  ", indentLevel)
-		local keyPrefix = if asArrayItem and index == 1 then `{itemPrefix}- ` else if asArrayItem then `{itemPrefix}  ` else itemPrefix
+	for propertyKey in props do
+		table.insert(propertyKeys, tostring(propertyKey))
+	end
+	table.sort(propertyKeys)
 
-		if key == "properties" and type(child) == "table" then
-			table.insert(lines, `{keyPrefix}{encodedKey}:`)
-			local propertyKeys = {}
-			for propertyKey in child do
-				table.insert(propertyKeys, tostring(propertyKey))
-			end
-			table.sort(propertyKeys)
-
-			local propertyIndent = if asArrayItem then itemPrefix .. "    " else itemPrefix .. "  "
-			for _, propertyKey in propertyKeys do
-				local propertyValue = child[propertyKey]
-				local propertyLines = encodeScalarLines(propertyValue, indentLevel + 2)
-				table.insert(lines, `{propertyIndent}{encodeMappingKey(propertyKey)}: {propertyLines[1]}`)
-				for lineIndex = 2, #propertyLines do
-					table.insert(lines, `{propertyIndent}  {propertyLines[lineIndex]}`)
-				end
-			end
-		elseif key == "children" and isArray(child) then
-			table.insert(lines, `{keyPrefix}{encodedKey}:`)
-			for _, item in child do
-				local childLines = encodeTreeNode(item, indentLevel + if asArrayItem then 2 else 1, true)
-				for _, line in childLines do
-					table.insert(lines, line)
-				end
-			end
-		elseif type(child) ~= "table" then
-			local scalarLines = encodeScalarLines(child, indentLevel + 1)
-			table.insert(lines, `{keyPrefix}{encodedKey}: {scalarLines[1]}`)
-		else
-			table.insert(lines, `{keyPrefix}{encodedKey}:`)
-			local childLines = encodeMapping(child, indentLevel + 1, false)
-			for _, line in childLines do
-				table.insert(lines, line)
-			end
+	for _, propertyKey in propertyKeys do
+		local propertyValue = props[propertyKey]
+		local propertyLines = encodeScalarLines(propertyValue, indentLevel + 1)
+		table.insert(lines, `{indent}{encodeMappingKey(propertyKey)}: {propertyLines[1]}`)
+		for lineIndex = 2, #propertyLines do
+			table.insert(lines, `{indent}  {propertyLines[lineIndex]}`)
 		end
 	end
 
 	return lines
 end
 
-local function encodeMapping(value: { [string]: any }, indentLevel: number, asArrayItem: boolean?): { string }
-	if isTreeNode(value) then
-		return encodeTreeNode(value, indentLevel, asArrayItem == true)
+local function countDuplicateLabels(children: { { [string]: any } }): { [string]: number }
+	local counts: { [string]: number } = {}
+	for _, child in children do
+		local label = formatNodeLabel(child.className, child.name)
+		counts[label] = (counts[label] or 0) + 1
 	end
+	return counts
+end
 
+local function encodeTreeNode(
+	node: { [string]: any },
+	indentLevel: number,
+	asArrayItem: boolean,
+	duplicateIndex: number?,
+	duplicateTotal: number?
+): { string }
 	local lines = {}
 	local indent = string.rep("  ", indentLevel)
-	local keys = orderedNodeKeys(value)
+	local header = formatNodeHeader(node.className, node.name, duplicateIndex, duplicateTotal)
 
-	for index, key in keys do
-		local child = value[key]
-		local encodedKey = encodeMappingKey(key)
-		local keyPrefix = if asArrayItem and index == 1 then `{indent}- ` else if asArrayItem then `{indent}  ` else indent
+	if asArrayItem then
+		table.insert(lines, `{indent}- {header}:`)
+	else
+		table.insert(lines, `{indent}{header}:`)
+	end
 
-		if type(child) ~= "table" then
-			local scalarLines = encodeScalarLines(child, indentLevel + 1)
-			table.insert(lines, `{keyPrefix}{encodedKey}: {scalarLines[1]}`)
-			for lineIndex = 2, #scalarLines do
-				table.insert(lines, `{indent}  {scalarLines[lineIndex]}`)
+	local bodyIndent = string.rep("  ", indentLevel + 1)
+
+	if node.props then
+		table.insert(lines, `{bodyIndent}props:`)
+		for _, line in encodePropertyBlock(node.props, indentLevel + 2) do
+			table.insert(lines, line)
+		end
+	end
+
+	if node.children then
+		local duplicateCounts = countDuplicateLabels(node.children)
+		local duplicateIndexes: { [string]: number } = {}
+
+		for _, child in node.children do
+			local label = formatNodeLabel(child.className, child.name)
+			local duplicateTotal = duplicateCounts[label]
+			local duplicateIndex = nil
+
+			if duplicateTotal > 1 then
+				duplicateIndexes[label] = (duplicateIndexes[label] or 0) + 1
+				duplicateIndex = duplicateIndexes[label]
 			end
-		elseif isArray(child) then
-			table.insert(lines, `{keyPrefix}{encodedKey}:`)
-			for _, item in child do
-				if isTreeNode(item) then
-					local nodeLines = encodeTreeNode(item, indentLevel + 1, true)
-					for _, line in nodeLines do
-						table.insert(lines, line)
-					end
-				else
-					local itemLines = encodeMapping(item, indentLevel + 1, true)
-					for _, line in itemLines do
-						table.insert(lines, line)
-					end
-				end
-			end
-		else
-			table.insert(lines, `{keyPrefix}{encodedKey}:`)
-			local childLines = encodeMapping(child, indentLevel + 1, false)
-			for _, line in childLines do
+
+			for _, line in encodeTreeNode(child, indentLevel + 1, false, duplicateIndex, duplicateTotal) do
 				table.insert(lines, line)
 			end
 		end
@@ -205,7 +199,34 @@ end
 
 function YamlFormat.encode(treeResult)
 	local document = Compact.compactTree(treeResult)
-	return table.concat(encodeMapping(document, 0, false), "\n")
+	local lines = {}
+
+	if document.root then
+		for _, line in encodeTreeNode(document.root, 0, false) do
+			table.insert(lines, line)
+		end
+	elseif document.roots then
+		local duplicateCounts = countDuplicateLabels(document.roots)
+		local duplicateIndexes: { [string]: number } = {}
+		local useTopLevelArray = #document.roots > 1
+
+		for _, root in document.roots do
+			local label = formatNodeLabel(root.className, root.name)
+			local duplicateTotal = duplicateCounts[label]
+			local duplicateIndex = nil
+
+			if duplicateTotal > 1 then
+				duplicateIndexes[label] = (duplicateIndexes[label] or 0) + 1
+				duplicateIndex = duplicateIndexes[label]
+			end
+
+			for _, line in encodeTreeNode(root, 0, useTopLevelArray, duplicateIndex, duplicateTotal) do
+				table.insert(lines, line)
+			end
+		end
+	end
+
+	return table.concat(lines, "\n")
 end
 
 return YamlFormat

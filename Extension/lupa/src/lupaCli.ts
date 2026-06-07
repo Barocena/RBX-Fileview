@@ -88,7 +88,7 @@ export function buildDumpArgs(filePath: string, options: DumpOptions = {}): stri
 	const full = options.full ?? config.get<boolean>('includeFullProperties', false);
 	const includeProperties = options.includeProperties ?? true;
 
-	const args = ['dump', filePath, '--stats'];
+	const args = ['dump', filePath];
 
 	if (maxDepth !== null && maxDepth !== undefined && !Number.isNaN(maxDepth)) {
 		args.push('--max-depth', String(maxDepth));

@@ -8,6 +8,18 @@ local function formatNumber(value: number): string
 	return string.format("%.6g", value)
 end
 
+local function formatInstancePath(path: string): string
+	if path == "/" then
+		return ""
+	end
+
+	if path:sub(1, 1) == "/" then
+		return path:sub(2)
+	end
+
+	return path
+end
+
 function Compact.formatSerialized(value: any): string
 	if value == nil then
 		return "nil"
@@ -65,11 +77,11 @@ function Compact.formatSerialized(value: any): string
 	end
 
 	if kind == "Enum" then
-		return `{value.enum}.{value.value}`
+		return value.value
 	end
 
 	if kind == "Instance" then
-		return `<{value.path}>`
+		return formatInstancePath(value.path)
 	end
 
 	if kind == "BrickColor" then
@@ -134,6 +146,62 @@ end
 
 function Compact.compactPropertyValue(value: any): any
 	if type(value) == "table" and value.type ~= nil then
+		local kind = value.type
+
+		if kind == "Vector3" then
+			return { value.x, value.y, value.z }
+		end
+
+		if kind == "Vector2" then
+			return { value.x, value.y }
+		end
+
+		if kind == "Color3" then
+			return { value.r, value.g, value.b }
+		end
+
+		if kind == "UDim" then
+			return { value.scale, value.offset }
+		end
+
+		if kind == "UDim2" then
+			return {
+				value.x.scale,
+				value.x.offset,
+				value.y.scale,
+				value.y.offset,
+			}
+		end
+
+		if kind == "CFrame" then
+			local numbers = {}
+			for _, number in value.position do
+				table.insert(numbers, number)
+			end
+			for _, number in value.orientation do
+				table.insert(numbers, number)
+			end
+			return numbers
+		end
+
+		if kind == "NumberRange" then
+			return { value.min, value.max }
+		end
+
+		if kind == "PhysicalProperties" then
+			return {
+				value.density,
+				value.friction,
+				value.elasticity,
+				value.frictionWeight,
+				value.elasticityWeight,
+			}
+		end
+
+		if kind == "Enum" then
+			return value.value
+		end
+
 		return Compact.formatSerialized(value)
 	end
 
@@ -152,11 +220,10 @@ function Compact.compactNode(node: { [string]: any }): { [string]: any }
 	local compacted = {
 		className = node.className,
 		name = node.name,
-		path = node.path,
 	}
 
 	if node.properties then
-		compacted.properties = Compact.compactProperties(node.properties)
+		compacted.props = Compact.compactProperties(node.properties)
 	end
 
 	if node.children then

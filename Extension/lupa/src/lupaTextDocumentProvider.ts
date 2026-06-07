@@ -3,20 +3,6 @@ import * as vscode from 'vscode';
 import { dumpRobloxFileAtRef } from './gitRefDump';
 import { fromLupaUri, getLupaGitRef, isLupaUri, isRobloxFile, LUPA_SCHEME, toLupaUri } from './lupaUri';
 
-function formatDocumentContent(stdout: string, stderr: string, includeStats: boolean): string {
-	const stats = stderr.trim();
-	if (!includeStats || !stats) {
-		return stdout;
-	}
-
-	const statsHeader = stats
-		.split('\n')
-		.map((line) => `# ${line}`)
-		.join('\n');
-
-	return `${statsHeader}\n\n${stdout}`;
-}
-
 export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvider {
 	private readonly changeEmitter = new vscode.EventEmitter<vscode.Uri>();
 	readonly onDidChange = this.changeEmitter.event;
@@ -44,7 +30,7 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 
 			const result = await dumpRobloxFileAtRef(sourceUri.fsPath, ref);
 			this.output?.appendLine(`Dump ok: ${sourceUri.fsPath} (${result.stdout.length} chars)`);
-			return formatDocumentContent(result.stdout, result.stderr, ref === 'WORKTREE');
+			return result.stdout;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.output?.appendLine(`Dump failed: ${message}`);
