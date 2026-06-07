@@ -76,6 +76,10 @@ function Compact.formatSerialized(value: any): string
 		return `BrickColor({value.number})`
 	end
 
+	if kind == "UniqueId" then
+		return `UniqueId({value.value})`
+	end
+
 	if kind == "NumberRange" then
 		return `NumberRange.new({formatNumber(value.min)}, {formatNumber(value.max)})`
 	end

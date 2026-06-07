@@ -10,7 +10,7 @@ local Values = {}
 local BINARY_HASH_THRESHOLD = 256
 
 local function isInstance(value: any): boolean
-	return typeof(value) == "Instance" or (type(value) == "userdata" and value.IsA ~= nil and value:IsA("Instance"))
+	return typeof(value) == "Instance"
 end
 
 function Values.equals(a: any, b: any): boolean
@@ -65,6 +65,10 @@ function Values.equals(a: any, b: any): boolean
 
 	if typeof(a) == "BrickColor" then
 		return a.Number == b.Number
+	end
+
+	if typeof(a) == "UniqueId" then
+		return tostring(a) == tostring(b)
 	end
 
 	if typeof(a) == "buffer" then
@@ -215,6 +219,13 @@ function Values.serialize(value: any, datatype: string, context: SerializeContex
 			type = "BrickColor",
 			name = value.Name,
 			number = value.Number,
+		}
+	end
+
+	if typeof(value) == "UniqueId" then
+		return {
+			type = "UniqueId",
+			value = tostring(value),
 		}
 	end
 

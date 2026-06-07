@@ -13,6 +13,8 @@ local SKIP_PROPERTIES = {
 	Parent = true,
 	Name = true,
 	ClassName = true,
+	UniqueId = true,
+	HistoryId = true,
 }
 
 local SKIP_TAGS = {
