@@ -1,8 +1,15 @@
 import * as vscode from 'vscode';
-import { isInDiffContext, isLupaDiffOpenForFile } from './diffGuard';
+import { isInDiffContext } from './diffGuard';
 import { isLupaUri, normalizeRobloxFileUri } from './lupaUri';
 import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
-import { closePlaceholderRobloxTabs, viewColumnForTab } from './robloxTabs';
+import {
+	closePlaceholderRobloxTabs,
+	closeTabIfPresent,
+	findLupaDiffTab,
+	findLupaSingleTab,
+	focusTab,
+	viewColumnForTab,
+} from './robloxTabs';
 import { openLupaDocument } from './openRobloxFile';
 import { openGitChanges } from './scmDiff';
 
@@ -45,6 +52,30 @@ async function schedulePlaceholderSweep(fileUri: vscode.Uri, intent: RobloxOpenI
 	}
 }
 
+async function focusExistingView(
+	fileUri: vscode.Uri,
+	intent: RobloxOpenIntent,
+	sourceTab?: vscode.Tab,
+): Promise<boolean> {
+	const existing = intent === 'scmDiff' ? findLupaDiffTab(fileUri) : findLupaSingleTab(fileUri);
+	if (!existing) {
+		return false;
+	}
+
+	await closePlaceholderRobloxTabs(fileUri, {
+		single: intent === 'explorer',
+		diff: intent === 'scmDiff',
+		custom: true,
+	});
+
+	if (sourceTab && sourceTab !== existing) {
+		await closeTabIfPresent(sourceTab);
+	}
+
+	await focusTab(existing);
+	return true;
+}
+
 export async function routeRobloxFileOpen(
 	fileUri: vscode.Uri,
 	output: vscode.OutputChannel,
@@ -61,11 +92,11 @@ export async function routeRobloxFileOpen(
 		return;
 	}
 
-	if (intent === 'explorer' && isInDiffContext(normalized)) {
+	if (await focusExistingView(normalized, intent, options?.sourceTab)) {
 		return;
 	}
 
-	if (intent === 'scmDiff' && isLupaDiffOpenForFile(normalized)) {
+	if (intent === 'explorer' && isInDiffContext(normalized)) {
 		return;
 	}
 

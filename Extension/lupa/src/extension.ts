@@ -9,23 +9,10 @@ import {
 import { setupGitDiffSupport } from './gitDiffSetup';
 import { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
 import { isLupaUri, isRobloxFile, LUPA_SCHEME } from './lupaUri';
-import { openLupaDocument } from './openRobloxFile';
+import { applyDumpLanguage, openLupaDocument } from './openRobloxFile';
 import { setupRobloxTabRouter } from './robloxTabRouter';
 import { RobloxCustomEditorProvider } from './robloxCustomEditorProvider';
 import { openGitChanges } from './scmDiff';
-
-async function applyDumpLanguage(document: vscode.TextDocument): Promise<void> {
-	if (!isLupaUri(document.uri)) {
-		return;
-	}
-
-	const format = vscode.workspace.getConfiguration('lupa').get<'yaml' | 'tree'>('dumpFormat', 'yaml');
-	const languageId = format === 'yaml' ? 'yaml' : 'plaintext';
-
-	if (document.languageId !== languageId) {
-		await vscode.languages.setTextDocumentLanguage(document, languageId);
-	}
-}
 
 function updateActiveDumpContext(): void {
 	const active = vscode.window.activeTextEditor?.document.uri;

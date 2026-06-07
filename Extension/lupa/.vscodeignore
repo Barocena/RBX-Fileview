@@ -8,3 +8,6 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+scripts/**
+pnpm-lock.yaml
+*.vsix

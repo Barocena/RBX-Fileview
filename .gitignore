@@ -3,10 +3,11 @@ Out
 Test/out*.yaml
 *.rbxl.lock
 
+*.vsix
+Extension/lupa/out/
 
 .vscode/**
-.vscode-test/**
-.gitignore
+**/.vscode-test/
 .yarnrc
 vsc-extension-quickstart.md
 **/tsconfig.json

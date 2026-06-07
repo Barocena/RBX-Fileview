@@ -219,7 +219,7 @@
     "compile": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\" && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "open-dev-host": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/open-dev-host.ps1",
-    "package-vsix": "pnpm run compile && pnpm exec vsce package --no-dependencies --allow-missing-repository",
+    "package-vsix": "pnpm run compile && pnpm exec vsce package --no-dependencies --allow-missing-repository -o lupa.vsix",
     "install-local": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-local.ps1",
     "pretest": "pnpm run compile && pnpm run lint",
     "lint": "eslint src",

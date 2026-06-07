@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
-import { isLupaUri } from './lupaUri';
+import { fromLupaUri, isLupaUri } from './lupaUri';
 
 const LUPA_CUSTOM_VIEW = 'lupa.roblox';
 
@@ -79,6 +79,81 @@ function collectPlaceholderTabs(
 	}
 
 	return toClose;
+}
+
+export function findLupaSingleTab(fileUri: vscode.Uri): vscode.Tab | undefined {
+	const key = robloxFileKey(fileUri);
+
+	for (const group of vscode.window.tabGroups.all) {
+		for (const tab of group.tabs) {
+			if (!(tab.input instanceof vscode.TabInputText)) {
+				continue;
+			}
+
+			if (!isLupaUri(tab.input.uri) || tab.input.uri.query) {
+				continue;
+			}
+
+			if (robloxFileKey(fromLupaUri(tab.input.uri)) === key) {
+				return tab;
+			}
+		}
+	}
+
+	return undefined;
+}
+
+export function findLupaDiffTab(fileUri: vscode.Uri): vscode.Tab | undefined {
+	const key = robloxFileKey(fileUri);
+
+	for (const group of vscode.window.tabGroups.all) {
+		for (const tab of group.tabs) {
+			if (!(tab.input instanceof vscode.TabInputTextDiff)) {
+				continue;
+			}
+
+			const { original, modified } = tab.input;
+			if (!isLupaUri(original) && !isLupaUri(modified)) {
+				continue;
+			}
+
+			for (const side of [original, modified]) {
+				if (isLupaUri(side) && robloxFileKey(fromLupaUri(side)) === key) {
+					return tab;
+				}
+			}
+		}
+	}
+
+	return undefined;
+}
+
+export async function focusTab(tab: vscode.Tab): Promise<void> {
+	if (tab.input instanceof vscode.TabInputText) {
+		const document = await vscode.workspace.openTextDocument(tab.input.uri);
+		await vscode.window.showTextDocument(document, {
+			viewColumn: tab.group.viewColumn,
+			preview: false,
+		});
+		return;
+	}
+
+	if (tab.input instanceof vscode.TabInputTextDiff) {
+		const document = await vscode.workspace.openTextDocument(tab.input.modified);
+		await vscode.window.showTextDocument(document, {
+			viewColumn: tab.group.viewColumn,
+			preview: false,
+		});
+	}
+}
+
+export async function closeTabIfPresent(tab: vscode.Tab): Promise<void> {
+	for (const group of vscode.window.tabGroups.all) {
+		if (group.tabs.includes(tab)) {
+			await vscode.window.tabGroups.close(tab);
+			return;
+		}
+	}
 }
 
 export async function closePlaceholderRobloxTabs(

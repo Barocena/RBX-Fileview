@@ -97,7 +97,7 @@ lune build Out/Bundle.luau -o lupa.exe
 
 Roblox files are binary. **Do not** use `workbench.editorAssociations` with `lupa.roblox` anywhere — it breaks diffs. The extension removes these automatically on activate.
 
-**Git changes (recommended):** In Source Control, **right-click** a changed `.rbxm` → **Lupa: Open Git Changes**. This opens a side-by-side YAML diff (HEAD vs working tree) via the extension.
+**Git changes:** Click a changed Roblox file in Source Control to open a Lupa YAML diff (HEAD vs working tree). You can also right-click → **Lupa: Open Git Changes**.
 
 **Manual compare:** Command Palette → **Lupa: Compare Active File With...**
 

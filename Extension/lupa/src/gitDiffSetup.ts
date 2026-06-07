@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import * as vscode from 'vscode';
-import { clearWorkspaceEditorAssociations } from './editorAssociations';
+import { clearUserEditorAssociations, clearWorkspaceEditorAssociations } from './editorAssociations';
 import { resolveCliPath } from './lupaCli';
 
 const execFileAsync = promisify(execFile);
@@ -17,9 +17,6 @@ const GIT_ATTRIBUTES_LINES = [
 	'*.rbxmx diff=lupa',
 	'',
 ];
-
-const ROBOX_PATTERNS = ['*.rbxl', '*.rbxlx', '*.rbxm', '*.rbxmx'] as const;
-const LUPA_VIEW_TYPE = 'lupa.roblox';
 
 async function runGit(args: string[], cwd: string): Promise<string> {
 	const { stdout } = await execFileAsync('git', args, {
@@ -38,18 +35,13 @@ async function findGitRoot(folderPath: string): Promise<string | undefined> {
 }
 
 async function resolveTextconvCommand(folderPath: string, cliPath: string): Promise<string> {
-	const wrapperCandidates = [
-		path.join(folderPath, 'scripts', 'lupa-textconv.cmd'),
-		path.join(folderPath, 'scripts', 'lupa-textconv.ps1'),
-	];
+	const wrapperPath = path.join(folderPath, 'scripts', 'lupa-textconv.cmd');
 
-	for (const candidate of wrapperCandidates) {
-		try {
-			await fs.access(candidate);
-			return candidate.split(path.sep).join('/');
-		} catch {
-			// try next candidate
-		}
+	try {
+		await fs.access(wrapperPath);
+		return wrapperPath.split(path.sep).join('/');
+	} catch {
+		// Fall back to the CLI directly.
 	}
 
 	if (process.platform === 'win32') {
@@ -94,37 +86,6 @@ async function ensureGitConfig(gitRoot: string, textconv: string, output: vscode
 	output.appendLine(`Configured git diff driver "lupa" -> ${textconv}`);
 }
 
-async function clearEditorAssociations(
-	target: vscode.ConfigurationTarget,
-	label: string,
-	output: vscode.OutputChannel,
-): Promise<void> {
-	const workbench = vscode.workspace.getConfiguration('workbench');
-	const current = workbench.get<Record<string, string>>('editorAssociations') ?? {};
-
-	let editorChanged = false;
-	const cleanedEditor = { ...current };
-
-	for (const pattern of ROBOX_PATTERNS) {
-		if (cleanedEditor[pattern] === LUPA_VIEW_TYPE) {
-			delete cleanedEditor[pattern];
-			editorChanged = true;
-		}
-	}
-
-	if (!editorChanged) {
-		return;
-	}
-
-	try {
-		await workbench.update('editorAssociations', cleanedEditor, target);
-		output.appendLine(`Removed Lupa editor associations from ${label} settings.`);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		output.appendLine(`Could not update ${label} editorAssociations: ${message}`);
-	}
-}
-
 export async function setupGitDiffSupport(output: vscode.OutputChannel): Promise<void> {
 	const config = vscode.workspace.getConfiguration('lupa');
 	if (!config.get<boolean>('setupGitDiff', true)) {
@@ -132,7 +93,7 @@ export async function setupGitDiffSupport(output: vscode.OutputChannel): Promise
 		return;
 	}
 
-	await clearEditorAssociations(vscode.ConfigurationTarget.Global, 'User', output);
+	await clearUserEditorAssociations(output);
 	await clearWorkspaceEditorAssociations(output);
 
 	const folders = vscode.workspace.workspaceFolders ?? [];
