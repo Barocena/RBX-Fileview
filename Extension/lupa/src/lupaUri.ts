@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 export const LUPA_SCHEME = 'lupa';
+export const LUPA_VIRTUAL_SUFFIX = '.lupa.yaml';
 export const ROBOX_EXTENSIONS = new Set(['.rbxl', '.rbxlx', '.rbxm', '.rbxmx']);
 
 export function isRobloxFile(uri: vscode.Uri): boolean {
@@ -25,11 +26,24 @@ export function normalizeRobloxFileUri(uri: vscode.Uri): vscode.Uri {
 }
 
 export function toLupaUri(fileUri: vscode.Uri): vscode.Uri {
-	return normalizeRobloxFileUri(fileUri).with({ scheme: LUPA_SCHEME });
+	const normalized = normalizeRobloxFileUri(fileUri);
+	const virtualPath = normalized.path.endsWith(LUPA_VIRTUAL_SUFFIX)
+		? normalized.path
+		: `${normalized.path}${LUPA_VIRTUAL_SUFFIX}`;
+
+	return normalized.with({
+		scheme: LUPA_SCHEME,
+		path: virtualPath,
+	});
 }
 
 export function fromLupaUri(lupaUri: vscode.Uri): vscode.Uri {
-	return lupaUri.with({ scheme: 'file' });
+	let filePath = lupaUri.path;
+	if (filePath.endsWith(LUPA_VIRTUAL_SUFFIX)) {
+		filePath = filePath.slice(0, -LUPA_VIRTUAL_SUFFIX.length);
+	}
+
+	return lupaUri.with({ scheme: 'file', path: filePath });
 }
 
 export function getLupaGitRef(uri: vscode.Uri): 'HEAD' | 'WORKTREE' {

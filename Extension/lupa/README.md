@@ -95,7 +95,7 @@ lune build Out/Bundle.luau -o lupa.exe
 
 ## Diffs
 
-Roblox files are binary. **Do not** use `workbench.editorAssociations` with `lupa.roblox` anywhere — it breaks diffs. The extension removes these automatically on activate.
+**Explorer:** Roblox files open in the registered **Lupa** custom editor (default), which shows the YAML dump in the normal text editor.
 
 **Git changes:** Click a changed Roblox file in Source Control to open a Lupa YAML diff (HEAD vs working tree). You can also right-click → **Lupa: Open Git Changes**.
 
@@ -113,4 +113,4 @@ When you open a file, the extension runs:
 lupa dump <file> --format yaml --stats
 ```
 
-Dump stats appear as `#` comments at the top. External file changes are detected and the open document refreshes automatically.
+Explorer opens use the registered **Lupa** editor (`lupa.roblox`). Source Control still uses the diff router for git-backed side-by-side views.

@@ -6,12 +6,14 @@ import {
 	selectForCompare,
 	setCompareSourceContext,
 } from './compare';
+import { syncRobloxEditorAssociations } from './editorAssociations';
 import { setupGitDiffSupport } from './gitDiffSetup';
 import { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
 import { isLupaUri, isRobloxFile, LUPA_SCHEME } from './lupaUri';
 import { applyDumpLanguage, openLupaDocument } from './openRobloxFile';
-import { setupRobloxTabRouter } from './robloxTabRouter';
 import { RobloxCustomEditorProvider } from './robloxCustomEditorProvider';
+import { setupExplorerTabRouter } from './robloxExplorerRouter';
+import { setupScmDiffRouter } from './scmDiffRouter';
 import { openGitChanges } from './scmDiff';
 
 function updateActiveDumpContext(): void {
@@ -33,7 +35,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 		const textProvider = new LupaTextDocumentProvider();
 		textProvider.setOutputChannel(output);
-		const customEditorProvider = new RobloxCustomEditorProvider(output);
+		const customEditorProvider = new RobloxCustomEditorProvider(textProvider, output);
 
 		const refreshActiveDump = () => {
 			const active = vscode.window.activeTextEditor?.document.uri;
@@ -45,9 +47,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		context.subscriptions.push(
 			output,
 			textProvider,
-			vscode.window.registerCustomEditorProvider('lupa.roblox', customEditorProvider, {
-				supportsMultipleEditorsPerDocument: true,
-			}),
+			vscode.window.registerCustomEditorProvider('lupa.roblox', customEditorProvider),
 			vscode.workspace.registerTextDocumentContentProvider(LUPA_SCHEME, textProvider),
 			vscode.workspace.onDidOpenTextDocument((document) => {
 				void applyDumpLanguage(document);
@@ -58,7 +58,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			vscode.workspace.onDidCloseTextDocument(() => {
 				updateActiveDumpContext();
 			}),
-			setupRobloxTabRouter(output),
+			setupScmDiffRouter(output),
+			setupExplorerTabRouter(output),
 			vscode.commands.registerCommand('lupa.refresh', refreshActiveDump),
 			vscode.commands.registerCommand('lupa.copyDump', async () => {
 				const document = vscode.window.activeTextEditor?.document;
@@ -97,6 +98,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		updateActiveDumpContext();
 		output.appendLine('Lupa extension activated.');
 		output.appendLine('Ready. Open a .rbxm file or run "Lupa: Open with Lupa Editor".');
+
+		void syncRobloxEditorAssociations(output).catch((error: unknown) => {
+			const message = error instanceof Error ? error.message : String(error);
+			output.appendLine(`Editor association setup failed: ${message}`);
+		});
+
+		context.subscriptions.push(
+			vscode.workspace.onDidChangeConfiguration((event) => {
+				if (event.affectsConfiguration('lupa.openByDefault')) {
+					void syncRobloxEditorAssociations(output);
+				}
+			}),
+		);
 
 		void setupGitDiffSupport(output).catch((error: unknown) => {
 			const message = error instanceof Error ? error.message : String(error);

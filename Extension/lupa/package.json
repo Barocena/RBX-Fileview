@@ -2,7 +2,7 @@
   "name": "lupa",
   "displayName": "Lupa",
   "description": "Human-readable viewer for Roblox place and model files.",
-  "version": "0.0.12",
+  "version": "0.0.20",
   "publisher": "lupa",
   "license": "MPL-2.0",
   "engines": {
@@ -26,33 +26,52 @@
         "displayName": "Lupa",
         "selector": [
           {
-            "filenamePattern": "*.rbxl"
+            "filenamePattern": "*.rbxl",
+            "scheme": "file"
           },
           {
-            "filenamePattern": "*.rbxlx"
+            "filenamePattern": "*.rbxlx",
+            "scheme": "file"
           },
           {
-            "filenamePattern": "*.rbxm"
+            "filenamePattern": "*.rbxm",
+            "scheme": "file"
           },
           {
-            "filenamePattern": "*.rbxmx"
+            "filenamePattern": "*.rbxmx",
+            "scheme": "file"
           },
           {
-            "filenamePattern": "**/*.rbxl"
+            "filenamePattern": "**/*.rbxl",
+            "scheme": "file"
           },
           {
-            "filenamePattern": "**/*.rbxlx"
+            "filenamePattern": "**/*.rbxlx",
+            "scheme": "file"
           },
           {
-            "filenamePattern": "**/*.rbxm"
+            "filenamePattern": "**/*.rbxm",
+            "scheme": "file"
           },
           {
-            "filenamePattern": "**/*.rbxmx"
+            "filenamePattern": "**/*.rbxmx",
+            "scheme": "file"
           }
         ],
         "priority": "option"
       }
     ],
+    "configurationDefaults": {
+      "workbench.editorAssociations": {
+        "*.lupa.yaml": "default"
+      },
+      "workbench.diffEditorAssociations": {
+        "*.rbxl": "default",
+        "*.rbxlx": "default",
+        "*.rbxm": "default",
+        "*.rbxmx": "default"
+      }
+    },
     "commands": [
       {
         "command": "lupa.refresh",

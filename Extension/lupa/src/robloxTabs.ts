@@ -1,84 +1,19 @@
+import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { LUPA_VIEW_TYPE } from './editorAssociations';
+import { fromLupaUri, isLupaUri, isRobloxFile } from './lupaUri';
 import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
-import { fromLupaUri, isLupaUri } from './lupaUri';
 
-const LUPA_CUSTOM_VIEW = 'lupa.roblox';
-
-function isPlaceholderSingleTab(tab: vscode.Tab, key: string): boolean {
-	if (!(tab.input instanceof vscode.TabInputText)) {
-		return false;
+export function tabLabel(tab: vscode.Tab): string {
+	if (typeof tab.label === 'string') {
+		return tab.label;
 	}
 
-	if (isLupaUri(tab.input.uri)) {
-		return false;
+	if (tab.label && typeof tab.label === 'object' && 'label' in tab.label) {
+		return String((tab.label as { label: string }).label);
 	}
 
-	const fileUri = robloxFileUriFromTabUri(tab.input.uri);
-	return fileUri !== undefined && robloxFileKey(fileUri) === key;
-}
-
-function isPlaceholderDiffTab(tab: vscode.Tab, key: string): boolean {
-	if (!(tab.input instanceof vscode.TabInputTextDiff)) {
-		return false;
-	}
-
-	if (isLupaUri(tab.input.original) || isLupaUri(tab.input.modified)) {
-		return false;
-	}
-
-	const originalFile = robloxFileUriFromTabUri(tab.input.original);
-	const modifiedFile = robloxFileUriFromTabUri(tab.input.modified);
-	return (
-		(originalFile !== undefined && robloxFileKey(originalFile) === key) ||
-		(modifiedFile !== undefined && robloxFileKey(modifiedFile) === key)
-	);
-}
-
-function isPlaceholderCustomTab(tab: vscode.Tab, key: string): boolean {
-	if (!(tab.input instanceof vscode.TabInputCustom)) {
-		return false;
-	}
-
-	if (tab.input.viewType !== LUPA_CUSTOM_VIEW) {
-		return false;
-	}
-
-	return robloxFileKey(tab.input.uri) === key;
-}
-
-function collectPlaceholderTabs(
-	fileUri: vscode.Uri,
-	options?: {
-		single?: boolean;
-		diff?: boolean;
-		custom?: boolean;
-	},
-): vscode.Tab[] {
-	const key = robloxFileKey(fileUri);
-	const includeSingle = options?.single ?? true;
-	const includeDiff = options?.diff ?? false;
-	const includeCustom = options?.custom ?? true;
-	const toClose: vscode.Tab[] = [];
-
-	for (const group of vscode.window.tabGroups.all) {
-		for (const tab of group.tabs) {
-			if (includeSingle && isPlaceholderSingleTab(tab, key)) {
-				toClose.push(tab);
-				continue;
-			}
-
-			if (includeDiff && isPlaceholderDiffTab(tab, key)) {
-				toClose.push(tab);
-				continue;
-			}
-
-			if (includeCustom && isPlaceholderCustomTab(tab, key)) {
-				toClose.push(tab);
-			}
-		}
-	}
-
-	return toClose;
+	return '';
 }
 
 export function findLupaSingleTab(fileUri: vscode.Uri): vscode.Tab | undefined {
@@ -156,23 +91,123 @@ export async function closeTabIfPresent(tab: vscode.Tab): Promise<void> {
 	}
 }
 
-export async function closePlaceholderRobloxTabs(
-	fileUri: vscode.Uri,
-	options?: {
-		single?: boolean;
-		diff?: boolean;
-		custom?: boolean;
-	},
-): Promise<number> {
-	const toClose = collectPlaceholderTabs(fileUri, options);
-	if (toClose.length === 0) {
-		return 0;
-	}
-
-	await vscode.window.tabGroups.close(toClose);
-	return toClose.length;
-}
-
 export function viewColumnForTab(tab?: vscode.Tab): vscode.ViewColumn | undefined {
 	return tab?.group.viewColumn;
+}
+
+export async function waitForLupaDiffTab(
+	fileUri: vscode.Uri,
+	timeoutMs = 5000,
+): Promise<vscode.Tab | undefined> {
+	const started = Date.now();
+
+	while (Date.now() - started < timeoutMs) {
+		const tab = findLupaDiffTab(fileUri);
+		if (tab) {
+			return tab;
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+	}
+
+	return undefined;
+}
+
+export function isNonLupaRobloxDiffTab(tab: vscode.Tab, fileUri: vscode.Uri): boolean {
+	if (!(tab.input instanceof vscode.TabInputTextDiff)) {
+		return false;
+	}
+
+	const { original, modified } = tab.input;
+	if (isLupaUri(original) || isLupaUri(modified)) {
+		return false;
+	}
+
+	const key = robloxFileKey(fileUri);
+	const basename = path.basename(fileUri.fsPath).toLowerCase();
+	const label = tabLabel(tab).toLowerCase();
+
+	if (label.includes(basename)) {
+		return true;
+	}
+
+	for (const side of [original, modified]) {
+		const sideFile = robloxFileUriFromTabUri(side);
+		if (sideFile && robloxFileKey(sideFile) === key) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+async function closeMatchingTabs(tabs: vscode.Tab[]): Promise<void> {
+	for (const tab of tabs) {
+		await vscode.window.tabGroups.close(tab);
+	}
+}
+
+export async function closeNonLupaRobloxDiffTabsForFile(fileUri: vscode.Uri): Promise<void> {
+	const tabsToClose: vscode.Tab[] = [];
+
+	for (const group of vscode.window.tabGroups.all) {
+		for (const tab of group.tabs) {
+			if (isNonLupaRobloxDiffTab(tab, fileUri)) {
+				tabsToClose.push(tab);
+			}
+		}
+	}
+
+	await closeMatchingTabs(tabsToClose);
+}
+
+export async function closeNonLupaRobloxDiffTabsForFileWithRetry(
+	fileUri: vscode.Uri,
+	attempts = 12,
+	delayMs = 150,
+): Promise<void> {
+	for (let attempt = 0; attempt < attempts; attempt += 1) {
+		await closeNonLupaRobloxDiffTabsForFile(fileUri);
+		await new Promise((resolve) => setTimeout(resolve, delayMs));
+	}
+}
+
+export async function closeExplorerPlaceholderTabsForFile(fileUri: vscode.Uri): Promise<void> {
+	const key = robloxFileKey(fileUri);
+	const lupaTab = findLupaSingleTab(fileUri);
+	const tabsToClose: vscode.Tab[] = [];
+
+	for (const group of vscode.window.tabGroups.all) {
+		for (const tab of group.tabs) {
+			if (tab === lupaTab) {
+				continue;
+			}
+
+			if (tab.input instanceof vscode.TabInputText && isRobloxFile(tab.input.uri)) {
+				if (robloxFileKey(tab.input.uri) === key) {
+					tabsToClose.push(tab);
+				}
+				continue;
+			}
+
+			if (tab.input instanceof vscode.TabInputCustom && tab.input.viewType === LUPA_VIEW_TYPE) {
+				if (isRobloxFile(tab.input.uri) && robloxFileKey(tab.input.uri) === key) {
+					tabsToClose.push(tab);
+				}
+			}
+		}
+	}
+
+	await closeMatchingTabs(tabsToClose);
+}
+
+export async function closeExplorerPlaceholderTabsForFileWithRetry(
+	fileUri: vscode.Uri,
+	attempts = 8,
+	delayMs = 100,
+): Promise<void> {
+	for (let attempt = 0; attempt < attempts; attempt += 1) {
+		await closeExplorerPlaceholderTabsForFile(fileUri);
+		await new Promise((resolve) => setTimeout(resolve, delayMs));
+	}
 }

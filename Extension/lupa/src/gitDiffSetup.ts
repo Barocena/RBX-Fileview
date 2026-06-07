@@ -3,7 +3,6 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import * as vscode from 'vscode';
-import { clearUserEditorAssociations, clearWorkspaceEditorAssociations } from './editorAssociations';
 import { resolveCliPath } from './lupaCli';
 
 const execFileAsync = promisify(execFile);
@@ -92,9 +91,6 @@ export async function setupGitDiffSupport(output: vscode.OutputChannel): Promise
 		output.appendLine('Git diff setup disabled (lupa.setupGitDiff = false).');
 		return;
 	}
-
-	await clearUserEditorAssociations(output);
-	await clearWorkspaceEditorAssociations(output);
 
 	const folders = vscode.workspace.workspaceFolders ?? [];
 	if (folders.length === 0) {
