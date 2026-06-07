@@ -148,6 +148,35 @@ local function encodeBase64(data: string): string
 	return table.concat(output)
 end
 
+local function normalizeContentString(value: string): string
+	local uri = string.match(value, "^Content%(Uri=(.+)%)$")
+	if uri then
+		return uri
+	end
+
+	if value == "Content()" or value == "Content" then
+		return ""
+	end
+
+	return value
+end
+
+local function dumpContentValue(value: any): string
+	if typeof(value) == "string" then
+		return normalizeContentString(value)
+	end
+
+	local ok, uri = pcall(function()
+		return (value :: any).Uri
+	end)
+
+	if ok and type(uri) == "string" and uri ~= "" then
+		return uri
+	end
+
+	return normalizeContentString(tostring(value))
+end
+
 local function dumpBinaryData(data: string): any
 	if #data > BINARY_HASH_THRESHOLD then
 		return { #data, serde.hash("sha256", data) }
@@ -170,7 +199,19 @@ function Values.toDumpValue(value: any, datatype: string, context: SerializeCont
 			return dumpBinaryData(value)
 		end
 
+		if datatype == "Content" or datatype == "ContentId" then
+			return dumpContentValue(value)
+		end
+
+		if string.sub(value, 1, 8) == "Content(" then
+			return normalizeContentString(value)
+		end
+
 		return value
+	end
+
+	if typeof(value) == "Content" then
+		return dumpContentValue(value)
 	end
 
 	if typeof(value) == "Vector3" then
@@ -268,7 +309,12 @@ function Values.toDumpValue(value: any, datatype: string, context: SerializeCont
 		return items
 	end
 
-	return tostring(value)
+	local text = tostring(value)
+	if string.sub(text, 1, 8) == "Content(" then
+		return normalizeContentString(text)
+	end
+
+	return text
 end
 
 return Values
