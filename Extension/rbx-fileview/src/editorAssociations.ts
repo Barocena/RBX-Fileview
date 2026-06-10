@@ -1,17 +1,17 @@
 import * as vscode from 'vscode';
 import { errorMessage } from './errorMessage';
-import { ROBLOX_GLOB_PATTERNS } from './lupaUri';
+import { ROBLOX_GLOB_PATTERNS } from './fileviewUri';
 
-const LUPA_VIEW_TYPE = 'lupa.roblox';
+const FILEVIEW_VIEW_TYPE = 'rbx-fileview.roblox';
 
-function stripLupaAssociations(
+function stripFileviewAssociations(
 	current: Record<string, string>,
 ): { cleaned: Record<string, string>; changed: boolean } {
 	const cleaned = { ...current };
 	let changed = false;
 
 	for (const pattern of ROBLOX_GLOB_PATTERNS) {
-		if (cleaned[pattern] === LUPA_VIEW_TYPE) {
+		if (cleaned[pattern] === FILEVIEW_VIEW_TYPE) {
 			delete cleaned[pattern];
 			changed = true;
 		}
@@ -22,7 +22,7 @@ function stripLupaAssociations(
 
 export async function clearUserEditorAssociations(output: vscode.OutputChannel): Promise<void> {
 	const workbench = vscode.workspace.getConfiguration('workbench');
-	const { cleaned, changed } = stripLupaAssociations(
+	const { cleaned, changed } = stripFileviewAssociations(
 		workbench.get<Record<string, string>>('editorAssociations') ?? {},
 	);
 
@@ -32,7 +32,7 @@ export async function clearUserEditorAssociations(output: vscode.OutputChannel):
 
 	try {
 		await workbench.update('editorAssociations', cleaned, vscode.ConfigurationTarget.Global);
-		output.appendLine('Removed Lupa editor associations from User settings.');
+		output.appendLine('Removed RBX-Fileview editor associations from User settings.');
 	} catch (error) {
 		output.appendLine(`Could not update User editorAssociations: ${errorMessage(error)}`);
 	}
@@ -45,12 +45,12 @@ export async function clearWorkspaceEditorAssociations(output: vscode.OutputChan
 	}
 
 	const workbench = vscode.workspace.getConfiguration('workbench', folder.uri);
-	const { cleaned, changed } = stripLupaAssociations(
+	const { cleaned, changed } = stripFileviewAssociations(
 		workbench.get<Record<string, string>>('editorAssociations') ?? {},
 	);
 
 	if (!changed) {
-		output.appendLine('Workspace editorAssociations do not map Roblox files to Lupa.');
+		output.appendLine('Workspace editorAssociations do not map Roblox files to rbx-fileview.');
 		return;
 	}
 

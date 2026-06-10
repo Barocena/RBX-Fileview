@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { dumpRobloxFile } from './lupaCli';
+import { dumpRobloxFile } from './fileviewCli';
 
 const execFileAsync = promisify(execFile);
 
@@ -38,7 +38,7 @@ async function writeGitBlobToTemp(repoRoot: string, ref: string, relativePath: s
 		windowsHide: true,
 	});
 
-	const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'lupa-git-'));
+	const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'rbx-fileview-git-'));
 	const tempFile = path.join(tempDir, path.basename(relativePath));
 	await fs.writeFile(tempFile, stdout);
 	return tempFile;

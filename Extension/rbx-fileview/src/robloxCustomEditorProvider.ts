@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import type { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
-import { isRobloxFile, normalizeRobloxFileUri } from './lupaUri';
+import type { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
+import { isRobloxFile, normalizeRobloxFileUri } from './fileviewUri';
 import { closePlaceholderRobloxTabs } from './robloxTabs';
-import { openLupaDocument } from './openRobloxFile';
+import { openFileviewDocument } from './openRobloxFile';
 
 class RobloxCustomDocument implements vscode.CustomDocument {
 	constructor(readonly uri: vscode.Uri) {}
@@ -13,7 +13,7 @@ class RobloxCustomDocument implements vscode.CustomDocument {
 export class RobloxCustomEditorProvider implements vscode.CustomReadonlyEditorProvider<RobloxCustomDocument> {
 	constructor(
 		private readonly output: vscode.OutputChannel,
-		private readonly textProvider?: LupaTextDocumentProvider,
+		private readonly textProvider?: FileviewTextDocumentProvider,
 	) {}
 
 	async openCustomDocument(
@@ -23,8 +23,8 @@ export class RobloxCustomEditorProvider implements vscode.CustomReadonlyEditorPr
 	): Promise<RobloxCustomDocument> {
 		if (uri.scheme !== 'file') {
 			throw new Error(
-				`Lupa only supports file:// Roblox files here (got ${uri.scheme}:). ` +
-					'Use "Lupa: Open Git Changes" for SCM diffs.',
+				`rbx-fileview only supports file:// Roblox files here (got ${uri.scheme}:). ` +
+					'Use "rbx-fileview: Open Git Changes" for SCM diffs.',
 			);
 		}
 
@@ -36,9 +36,9 @@ export class RobloxCustomEditorProvider implements vscode.CustomReadonlyEditorPr
 		webviewPanel: vscode.WebviewPanel,
 		_token: vscode.CancellationToken,
 	): Promise<void> {
-		this.output.appendLine(`Custom editor redirecting to Lupa text view: ${document.uri.fsPath}`);
+		this.output.appendLine(`Custom editor redirecting to RBX-Fileview text view: ${document.uri.fsPath}`);
 
-		await openLupaDocument(
+		await openFileviewDocument(
 			document.uri,
 			this.output,
 			{ viewColumn: webviewPanel.viewColumn, preview: false },

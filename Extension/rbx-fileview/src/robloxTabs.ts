@@ -1,16 +1,16 @@
 import * as vscode from 'vscode';
-import type { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
-import { fromLupaUri, isLupaUri } from './lupaUri';
+import type { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
+import { fromFileviewUri, isFileviewUri } from './fileviewUri';
 import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
 
-const LUPA_CUSTOM_VIEW = 'lupa.roblox';
+const FILEVIEW_CUSTOM_VIEW = 'rbx-fileview.roblox';
 
 function isPlaceholderSingleTab(tab: vscode.Tab, key: string): boolean {
 	if (!(tab.input instanceof vscode.TabInputText)) {
 		return false;
 	}
 
-	if (isLupaUri(tab.input.uri)) {
+	if (isFileviewUri(tab.input.uri)) {
 		return false;
 	}
 
@@ -23,7 +23,7 @@ function isPlaceholderDiffTab(tab: vscode.Tab, key: string): boolean {
 		return false;
 	}
 
-	if (isLupaUri(tab.input.original) || isLupaUri(tab.input.modified)) {
+	if (isFileviewUri(tab.input.original) || isFileviewUri(tab.input.modified)) {
 		return false;
 	}
 
@@ -40,7 +40,7 @@ function isPlaceholderCustomTab(tab: vscode.Tab, key: string): boolean {
 		return false;
 	}
 
-	if (tab.input.viewType !== LUPA_CUSTOM_VIEW) {
+	if (tab.input.viewType !== FILEVIEW_CUSTOM_VIEW) {
 		return false;
 	}
 
@@ -82,7 +82,7 @@ function collectPlaceholderTabs(
 	return toClose;
 }
 
-export function findLupaSingleTab(fileUri: vscode.Uri): vscode.Tab | undefined {
+export function findFileviewSingleTab(fileUri: vscode.Uri): vscode.Tab | undefined {
 	const key = robloxFileKey(fileUri);
 
 	for (const group of vscode.window.tabGroups.all) {
@@ -91,11 +91,11 @@ export function findLupaSingleTab(fileUri: vscode.Uri): vscode.Tab | undefined {
 				continue;
 			}
 
-			if (!isLupaUri(tab.input.uri) || tab.input.uri.query) {
+			if (!isFileviewUri(tab.input.uri) || tab.input.uri.query) {
 				continue;
 			}
 
-			if (robloxFileKey(fromLupaUri(tab.input.uri)) === key) {
+			if (robloxFileKey(fromFileviewUri(tab.input.uri)) === key) {
 				return tab;
 			}
 		}
@@ -104,7 +104,7 @@ export function findLupaSingleTab(fileUri: vscode.Uri): vscode.Tab | undefined {
 	return undefined;
 }
 
-export function findLupaDiffTab(fileUri: vscode.Uri): vscode.Tab | undefined {
+export function findFileviewDiffTab(fileUri: vscode.Uri): vscode.Tab | undefined {
 	const key = robloxFileKey(fileUri);
 
 	for (const group of vscode.window.tabGroups.all) {
@@ -114,12 +114,12 @@ export function findLupaDiffTab(fileUri: vscode.Uri): vscode.Tab | undefined {
 			}
 
 			const { original, modified } = tab.input;
-			if (!isLupaUri(original) && !isLupaUri(modified)) {
+			if (!isFileviewUri(original) && !isFileviewUri(modified)) {
 				continue;
 			}
 
 			for (const side of [original, modified]) {
-				if (isLupaUri(side) && robloxFileKey(fromLupaUri(side)) === key) {
+				if (isFileviewUri(side) && robloxFileKey(fromFileviewUri(side)) === key) {
 					return tab;
 				}
 			}
@@ -131,11 +131,11 @@ export function findLupaDiffTab(fileUri: vscode.Uri): vscode.Tab | undefined {
 
 export async function focusTab(
 	tab: vscode.Tab,
-	textProvider?: LupaTextDocumentProvider,
+	textProvider?: FileviewTextDocumentProvider,
 ): Promise<void> {
 	if (tab.input instanceof vscode.TabInputText) {
-		if (isLupaUri(tab.input.uri)) {
-			textProvider?.prepareOpen(fromLupaUri(tab.input.uri));
+		if (isFileviewUri(tab.input.uri)) {
+			textProvider?.prepareOpen(fromFileviewUri(tab.input.uri));
 		}
 
 		const document = await vscode.workspace.openTextDocument(tab.input.uri);

@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $extensionDir = Resolve-Path (Join-Path $PSScriptRoot "..")
-$vsixPath = Join-Path $extensionDir "lupa.vsix"
+$vsixPath = Join-Path $extensionDir "rbx-fileview.vsix"
 $cursorCmd = Join-Path $env:LOCALAPPDATA "Programs/cursor/resources/app/bin/cursor.cmd"
 
 if (-not (Test-Path $cursorCmd)) {
@@ -14,13 +14,13 @@ try {
 	pnpm run compile
 
 	Write-Host "Packaging VSIX..."
-	pnpm exec vsce package --no-dependencies --allow-missing-repository -o lupa.vsix
+	pnpm exec vsce package --no-dependencies --allow-missing-repository -o rbx-fileview.vsix
 
 	if (-not (Test-Path $vsixPath)) {
 		Write-Error "VSIX was not created at $vsixPath"
 	}
 
-	Write-Host "Installing lupa.vsix into Cursor..."
+	Write-Host "Installing rbx-fileview.vsix into Cursor..."
 	& $cursorCmd --install-extension $vsixPath --force
 
 	Write-Host ""

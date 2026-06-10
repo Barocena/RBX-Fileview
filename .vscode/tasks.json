@@ -5,7 +5,7 @@
 			"label": "Compile CLI",
 			"type": "shell",
 			"group": "build",
-			"command": "darklua process ./cli/Init.luau Out/Bundle.luau;darklua minify Out/Bundle.luau Out/Bundle.luau;lune build Out/Bundle.luau -o lupa.exe",
+			"command": "darklua process ./cli/Init.luau Out/Bundle.luau;darklua minify Out/Bundle.luau Out/Bundle.luau;lune build Out/Bundle.luau -o rbx-fileview.exe",
 			"isBackground": true,
 			"presentation": {
 				"reveal": "never",
@@ -18,7 +18,7 @@
 			"type": "shell",
 			"command": "pnpm run compile",
 			"options": {
-				"cwd": "${workspaceFolder}/Extension/lupa",
+				"cwd": "${workspaceFolder}/Extension/rbx-fileview",
 				"env": {
 					"PATH": "${env:PATH}"
 				}
@@ -40,7 +40,7 @@
 			"type": "shell",
 			"command": "pnpm run watch",
 			"options": {
-				"cwd": "${workspaceFolder}/Extension/lupa"
+				"cwd": "${workspaceFolder}/Extension/rbx-fileview"
 			},
 			"isBackground": true,
 			"problemMatcher": "$tsc-watch",
@@ -67,7 +67,7 @@
 			"type": "shell",
 			"command": "pnpm run install-local",
 			"options": {
-				"cwd": "${workspaceFolder}/Extension/lupa",
+				"cwd": "${workspaceFolder}/Extension/rbx-fileview",
 				"env": {
 					"PATH": "${env:PATH}"
 				}

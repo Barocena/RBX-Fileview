@@ -68,7 +68,7 @@ function Dump.dumpFile(filePath: string, options: DumpRunOptions?): DumpResult
 end
 
 local function printHelp()
-	print(`Usage: lupa dump <file> [options]`)
+	print(`Usage: rbx-fileview dump <file> [options]`)
 	print("")
 	print("Options:")
 	print("  -o, --output <path>     Write output to file (default: stdout)")
@@ -123,7 +123,7 @@ local function parseArgs(args: { string }): DumpCliOptions
 		elseif arg == "--stats" then
 			options.stats = true
 		elseif arg == "--format" then
-			error("The --format option was removed. Lupa dump output is YAML only.")
+			error("The --format option was removed. rbx-fileview dump output is YAML only.")
 		elseif arg:sub(1, 1) == "-" then
 			error(`Unknown option: {arg}`)
 		else
@@ -150,7 +150,7 @@ function Dump.run(args: { string })
 
 	if not ok then
 		stdio.ewrite(`Error: {result}\n`)
-		stdio.ewrite("Run `lupa dump --help` for usage.\n")
+		stdio.ewrite("Run `rbx-fileview dump --help` for usage.\n")
 		process.exit(1)
 	end
 

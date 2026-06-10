@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import * as vscode from 'vscode';
 
 const execFileAsync = promisify(execFile);
-const CLI_EXECUTABLE = process.platform === 'win32' ? 'lupa.exe' : 'lupa';
+const CLI_EXECUTABLE = process.platform === 'win32' ? 'rbx-fileview.exe' : 'rbx-fileview';
 
 export interface DumpResult {
 	stdout: string;
@@ -59,10 +59,10 @@ async function findCliNearFile(filePath: string): Promise<string | undefined> {
 }
 
 export async function resolveCliPath(filePath?: string): Promise<string> {
-	const config = vscode.workspace.getConfiguration('lupa');
-	const configured = config.get<string>('cliPath', 'lupa').trim();
+	const config = vscode.workspace.getConfiguration('rbx-fileview');
+	const configured = config.get<string>('cliPath', 'rbx-fileview').trim();
 
-	if (configured !== 'lupa' && configured !== 'lupa.exe') {
+	if (configured !== 'rbx-fileview' && configured !== 'rbx-fileview.exe') {
 		return configured;
 	}
 
@@ -82,7 +82,7 @@ export async function resolveCliPath(filePath?: string): Promise<string> {
 }
 
 export function buildDumpArgs(filePath: string, options: DumpOptions = {}): string[] {
-	const config = vscode.workspace.getConfiguration('lupa');
+	const config = vscode.workspace.getConfiguration('rbx-fileview');
 	const maxDepth = options.maxDepth ?? config.get<number | null>('maxDepth', null);
 	const full = options.full ?? config.get<boolean>('includeFullProperties', false);
 	const includeProperties = options.includeProperties ?? true;
@@ -136,14 +136,14 @@ export async function dumpRobloxFile(
 
 		if (execError.code === 'ENOENT') {
 			throw new Error(
-				`Lupa CLI not found at "${cliPath}". ` +
-					'Build lupa.exe in the project root or set "lupa.cliPath" in settings.',
+				`rbx-fileview CLI not found at "${cliPath}". ` +
+					'Build rbx-fileview.exe in the project root or set "rbx-fileview.cliPath" in settings.',
 			);
 		}
 
 		const stderr = execError.stderr?.trim();
 		const stdout = execError.stdout?.trim();
-		const message = stderr || stdout || execError.message || 'Unknown error while running lupa dump';
+		const message = stderr || stdout || execError.message || 'Unknown error while running rbx-fileview dump';
 
 		throw new Error(message);
 	}

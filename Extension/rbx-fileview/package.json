@@ -1,9 +1,9 @@
 {
-  "name": "lupa",
-  "displayName": "Lupa",
+  "name": "rbx-fileview",
+  "displayName": "RBX-Fileview",
   "description": "Human-readable viewer for Roblox place and model files.",
   "version": "0.0.12",
-  "publisher": "lupa",
+  "publisher": "rbx-fileview",
   "license": "MPL-2.0",
   "engines": {
     "vscode": "^1.105.0"
@@ -13,17 +13,17 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onCustomEditor:lupa.roblox",
+    "onCustomEditor:rbx-fileview.roblox",
     "workspaceContains:**/*.rbxm",
     "workspaceContains:**/*.rbxl",
-    "onCommand:lupa.openWith"
+    "onCommand:rbx-fileview.openWith"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "customEditors": [
       {
-        "viewType": "lupa.roblox",
-        "displayName": "Lupa",
+        "viewType": "rbx-fileview.roblox",
+        "displayName": "RBX-Fileview",
         "selector": [
           {
             "filenamePattern": "*.rbxl"
@@ -55,152 +55,152 @@
     ],
     "commands": [
       {
-        "command": "lupa.refresh",
-        "title": "Lupa: Refresh",
+        "command": "rbx-fileview.refresh",
+        "title": "RBX-Fileview: Refresh",
         "icon": "$(refresh)"
       },
       {
-        "command": "lupa.copyDump",
-        "title": "Lupa: Copy Dump Output"
+        "command": "rbx-fileview.copyDump",
+        "title": "RBX-Fileview: Copy Dump Output"
       },
       {
-        "command": "lupa.openWith",
-        "title": "Lupa: Open with Lupa Editor"
+        "command": "rbx-fileview.openWith",
+        "title": "RBX-Fileview: Open with RBX-Fileview"
       },
       {
-        "command": "lupa.selectForCompare",
-        "title": "Lupa: Select for Compare"
+        "command": "rbx-fileview.selectForCompare",
+        "title": "RBX-Fileview: Select for Compare"
       },
       {
-        "command": "lupa.compareWithSelected",
-        "title": "Lupa: Compare with Selected"
+        "command": "rbx-fileview.compareWithSelected",
+        "title": "RBX-Fileview: Compare with Selected"
       },
       {
-        "command": "lupa.compareWith",
-        "title": "Lupa: Compare with..."
+        "command": "rbx-fileview.compareWith",
+        "title": "RBX-Fileview: Compare with..."
       },
       {
-        "command": "lupa.compareActiveWith",
-        "title": "Lupa: Compare Active File With..."
+        "command": "rbx-fileview.compareActiveWith",
+        "title": "RBX-Fileview: Compare Active File With..."
       },
       {
-        "command": "lupa.openGitChanges",
-        "title": "Lupa: Open Git Changes",
+        "command": "rbx-fileview.openGitChanges",
+        "title": "RBX-Fileview: Open Git Changes",
         "icon": "$(git-compare)"
       }
     ],
     "menus": {
       "editor/title": [
         {
-          "command": "lupa.refresh",
-          "when": "lupa.dumpActive",
+          "command": "rbx-fileview.refresh",
+          "when": "rbx-fileview.dumpActive",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
-          "command": "lupa.refresh",
-          "when": "lupa.dumpActive"
+          "command": "rbx-fileview.refresh",
+          "when": "rbx-fileview.dumpActive"
         },
         {
-          "command": "lupa.copyDump",
-          "when": "lupa.dumpActive"
+          "command": "rbx-fileview.copyDump",
+          "when": "rbx-fileview.dumpActive"
         },
         {
-          "command": "lupa.openWith",
+          "command": "rbx-fileview.openWith",
           "when": "resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx"
         },
         {
-          "command": "lupa.compareActiveWith",
-          "when": "lupa.dumpActive"
+          "command": "rbx-fileview.compareActiveWith",
+          "when": "rbx-fileview.dumpActive"
         },
         {
-          "command": "lupa.compareWith",
+          "command": "rbx-fileview.compareWith",
           "when": "resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx"
         },
         {
-          "command": "lupa.selectForCompare",
+          "command": "rbx-fileview.selectForCompare",
           "when": "resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx"
         },
         {
-          "command": "lupa.compareWithSelected",
-          "when": "lupa.compareSourceSet && (resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx)"
+          "command": "rbx-fileview.compareWithSelected",
+          "when": "rbx-fileview.compareSourceSet && (resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx)"
         },
         {
-          "command": "lupa.openGitChanges",
+          "command": "rbx-fileview.openGitChanges",
           "when": "scmResourceExtname == .rbxl || scmResourceExtname == .rbxlx || scmResourceExtname == .rbxm || scmResourceExtname == .rbxmx"
         }
       ],
       "scm/resourceState/context": [
         {
-          "command": "lupa.openGitChanges",
+          "command": "rbx-fileview.openGitChanges",
           "when": "scmResourceExtname == .rbxl || scmResourceExtname == .rbxlx || scmResourceExtname == .rbxm || scmResourceExtname == .rbxmx",
           "group": "navigation@1"
         }
       ],
       "explorer/context": [
         {
-          "command": "lupa.openWith",
+          "command": "rbx-fileview.openWith",
           "when": "resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx",
           "group": "navigation"
         },
         {
-          "command": "lupa.selectForCompare",
+          "command": "rbx-fileview.selectForCompare",
           "when": "resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx",
           "group": "1_diff@1"
         },
         {
-          "command": "lupa.compareWithSelected",
-          "when": "lupa.compareSourceSet && (resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx)",
+          "command": "rbx-fileview.compareWithSelected",
+          "when": "rbx-fileview.compareSourceSet && (resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx)",
           "group": "1_diff@2"
         },
         {
-          "command": "lupa.compareWith",
+          "command": "rbx-fileview.compareWith",
           "when": "resourceExtname == .rbxl || resourceExtname == .rbxlx || resourceExtname == .rbxm || resourceExtname == .rbxmx",
           "group": "1_diff@3"
         }
       ]
     },
     "configuration": {
-      "title": "Lupa",
+      "title": "RBX-Fileview",
       "properties": {
-        "lupa.cliPath": {
+        "rbx-fileview.cliPath": {
           "type": "string",
-          "default": "lupa",
-          "description": "Path to the lupa CLI executable. Defaults to lupa on PATH, or lupa.exe in the workspace root."
+          "default": "rbx-fileview",
+          "description": "Path to the RBX-Fileview CLI executable. Defaults to RBX-Fileview on PATH, or rbx-fileview.exe in the workspace root."
         },
-        "lupa.maxDepth": {
+        "rbx-fileview.maxDepth": {
           "type": [
             "number",
             "null"
           ],
           "default": null,
-          "description": "Optional max traversal depth for lupa dump."
+          "description": "Optional max traversal depth for rbx-fileview dump."
         },
-        "lupa.includeFullProperties": {
+        "rbx-fileview.includeFullProperties": {
           "type": "boolean",
           "default": false,
           "description": "Include default-valued properties in dump output."
         },
-        "lupa.includeSource": {
+        "rbx-fileview.includeSource": {
           "type": "boolean",
           "default": true,
           "description": "Include script Source property text in dump output. Disable for large place files."
         },
-        "lupa.setupGitDiff": {
+        "rbx-fileview.setupGitDiff": {
           "type": "boolean",
           "default": true,
-          "description": "Configure git textconv so Source Control diffs show Lupa YAML instead of binary."
+          "description": "Configure git textconv so Source Control diffs show RBX-Fileview YAML instead of binary."
         },
-        "lupa.openByDefault": {
+        "rbx-fileview.openByDefault": {
           "type": "boolean",
           "default": true,
-          "description": "When a .rbxm file is opened from disk, automatically show the read-only Lupa YAML text view."
+          "description": "When a .rbxm file is opened from disk, automatically show the read-only RBX-Fileview YAML text view."
         },
-        "lupa.openDiffForChangedFiles": {
+        "rbx-fileview.openDiffForChangedFiles": {
           "type": "boolean",
           "default": true,
-          "description": "When a changed Roblox file is opened from Source Control, open the Lupa HEAD vs working tree diff. Explorer opens always show a single-file view."
+          "description": "When a changed Roblox file is opened from Source Control, open the RBX-Fileview HEAD vs working tree diff. Explorer opens always show a single-file view."
         }
       }
     }
@@ -210,7 +210,7 @@
     "compile": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\" && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "open-dev-host": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/open-dev-host.ps1",
-    "package-vsix": "pnpm run compile && pnpm exec vsce package --no-dependencies --allow-missing-repository -o lupa.vsix",
+    "package-vsix": "pnpm run compile && pnpm exec vsce package --no-dependencies --allow-missing-repository -o rbx-fileview.vsix",
     "install-local": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-local.ps1",
     "pretest": "pnpm run compile && pnpm run lint",
     "lint": "eslint src",

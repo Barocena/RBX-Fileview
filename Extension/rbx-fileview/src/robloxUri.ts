@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { isLupaUri, isRobloxFile, normalizeRobloxFileUri } from './lupaUri';
+import { isFileviewUri, isRobloxFile, normalizeRobloxFileUri } from './fileviewUri';
 
 export function robloxFileKey(fileUri: vscode.Uri): string {
 	return normalizeRobloxFileUri(fileUri).fsPath.toLowerCase();
@@ -36,7 +36,7 @@ export function robloxFileUriFromGitUri(uri: vscode.Uri): vscode.Uri | undefined
 }
 
 export function robloxFileUriFromTabUri(uri: vscode.Uri): vscode.Uri | undefined {
-	if (isLupaUri(uri)) {
+	if (isFileviewUri(uri)) {
 		return undefined;
 	}
 

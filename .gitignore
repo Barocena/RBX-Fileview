@@ -4,7 +4,7 @@ Test/out*.yaml
 *.rbxl.lock
 
 *.vsix
-Extension/lupa/out/
+Extension/rbx-fileview/out/
 
 .vscode/**
 **/.vscode-test/

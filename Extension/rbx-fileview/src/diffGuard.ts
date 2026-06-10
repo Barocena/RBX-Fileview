@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { fromLupaUri, isLupaUri } from './lupaUri';
+import { fromFileviewUri, isFileviewUri } from './fileviewUri';
 
 let diffOperationDepth = 0;
 
@@ -18,8 +18,8 @@ function pathsEqual(left: vscode.Uri, right: vscode.Uri): boolean {
 }
 
 function uriPathVariants(uri: vscode.Uri): vscode.Uri[] {
-	if (isLupaUri(uri)) {
-		return [uri, fromLupaUri(uri)];
+	if (isFileviewUri(uri)) {
+		return [uri, fromFileviewUri(uri)];
 	}
 
 	return [uri];

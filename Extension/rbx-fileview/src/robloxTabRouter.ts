@@ -1,30 +1,30 @@
 import * as vscode from 'vscode';
 import { errorMessage } from './errorMessage';
 import { isInDiffContext } from './diffGuard';
-import type { LupaTextDocumentProvider } from './lupaTextDocumentProvider';
-import { isLupaUri, isRobloxFile, normalizeRobloxFileUri } from './lupaUri';
+import type { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
+import { isFileviewUri, isRobloxFile, normalizeRobloxFileUri } from './fileviewUri';
 import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
 import {
 	closePlaceholderRobloxTabs,
 	closeTabIfPresent,
-	findLupaDiffTab,
-	findLupaSingleTab,
+	findFileviewDiffTab,
+	findFileviewSingleTab,
 	focusTab,
 	viewColumnForTab,
 } from './robloxTabs';
-import { openLupaDocument } from './openRobloxFile';
+import { openFileviewDocument } from './openRobloxFile';
 import { openGitChanges } from './scmDiff';
 
 const handledFiles = new Set<string>();
 
 type RobloxOpenIntent = 'explorer' | 'scmDiff';
 
-function isLupaDiffTab(tab: vscode.Tab): boolean {
+function isFileviewDiffTab(tab: vscode.Tab): boolean {
 	if (!(tab.input instanceof vscode.TabInputTextDiff)) {
 		return false;
 	}
 
-	return isLupaUri(tab.input.original) || isLupaUri(tab.input.modified);
+	return isFileviewUri(tab.input.original) || isFileviewUri(tab.input.modified);
 }
 
 function robloxFileFromDiffTab(tab: vscode.Tab): vscode.Uri | undefined {
@@ -69,10 +69,10 @@ async function schedulePlaceholderSweep(fileUri: vscode.Uri, intent: RobloxOpenI
 async function focusExistingView(
 	fileUri: vscode.Uri,
 	intent: RobloxOpenIntent,
-	textProvider: LupaTextDocumentProvider | undefined,
+	textProvider: FileviewTextDocumentProvider | undefined,
 	sourceTab?: vscode.Tab,
 ): Promise<boolean> {
-	const existing = intent === 'scmDiff' ? findLupaDiffTab(fileUri) : findLupaSingleTab(fileUri);
+	const existing = intent === 'scmDiff' ? findFileviewDiffTab(fileUri) : findFileviewSingleTab(fileUri);
 	if (!existing) {
 		return false;
 	}
@@ -94,7 +94,7 @@ async function focusExistingView(
 export async function routeRobloxFileOpen(
 	fileUri: vscode.Uri,
 	output: vscode.OutputChannel,
-	textProvider?: LupaTextDocumentProvider,
+	textProvider?: FileviewTextDocumentProvider,
 	options?: {
 		intent?: RobloxOpenIntent;
 		sourceTab?: vscode.Tab;
@@ -104,7 +104,7 @@ export async function routeRobloxFileOpen(
 	const normalized = normalizeRobloxFileUri(fileUri);
 	const key = robloxFileKey(normalized);
 
-	// Always refocus an existing Lupa tab — even during the new-open debounce window.
+	// Always refocus an existing RBX-Fileview tab — even during the new-open debounce window.
 	if (await focusExistingView(normalized, intent, textProvider, options?.sourceTab)) {
 		return;
 	}
@@ -122,7 +122,7 @@ export async function routeRobloxFileOpen(
 	const viewColumn = viewColumnForTab(options?.sourceTab);
 
 	try {
-		const config = vscode.workspace.getConfiguration('lupa');
+		const config = vscode.workspace.getConfiguration('rbx-fileview');
 		const openByDefault = config.get<boolean>('openByDefault', true);
 		const openScmDiff = config.get<boolean>('openDiffForChangedFiles', true);
 
@@ -133,11 +133,11 @@ export async function routeRobloxFileOpen(
 				return;
 			}
 
-			output.appendLine(`Routing SCM Roblox diff to Lupa: ${normalized.fsPath}`);
+			output.appendLine(`Routing SCM Roblox diff to rbx-fileview: ${normalized.fsPath}`);
 			await openGitChanges(normalized, output, { viewColumn });
 		} else if (openByDefault) {
-			output.appendLine(`Routing Roblox file to Lupa text view: ${normalized.fsPath}`);
-			await openLupaDocument(normalized, output, { viewColumn, preview: false }, textProvider);
+			output.appendLine(`Routing Roblox file to RBX-Fileview text view: ${normalized.fsPath}`);
+			await openFileviewDocument(normalized, output, { viewColumn, preview: false }, textProvider);
 		} else {
 			return;
 		}
@@ -154,12 +154,12 @@ export async function routeRobloxFileOpen(
 
 export function setupRobloxTabRouter(
 	output: vscode.OutputChannel,
-	textProvider?: LupaTextDocumentProvider,
+	textProvider?: FileviewTextDocumentProvider,
 ): vscode.Disposable {
 	return vscode.window.tabGroups.onDidChangeTabs((event) => {
 		for (const tab of event.opened) {
 			if (tab.input instanceof vscode.TabInputTextDiff) {
-				if (isLupaDiffTab(tab)) {
+				if (isFileviewDiffTab(tab)) {
 					continue;
 				}
 

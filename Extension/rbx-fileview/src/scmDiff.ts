@@ -2,12 +2,12 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { beginDiffOperation, endDiffOperation } from './diffGuard';
 import { errorMessage } from './errorMessage';
-import { isRobloxFile, normalizeRobloxFileUri, toLupaUri } from './lupaUri';
+import { isRobloxFile, normalizeRobloxFileUri, toFileviewUri } from './fileviewUri';
 
-function toLupaGitUri(fileUri: vscode.Uri, ref: 'HEAD' | 'WORKTREE'): vscode.Uri {
+function toFileviewGitUri(fileUri: vscode.Uri, ref: 'HEAD' | 'WORKTREE'): vscode.Uri {
 	const params = new URLSearchParams();
 	params.set('ref', ref);
-	return toLupaUri(fileUri).with({ query: params.toString() });
+	return toFileviewUri(fileUri).with({ query: params.toString() });
 }
 
 export async function openGitChanges(
@@ -23,8 +23,8 @@ export async function openGitChanges(
 		return;
 	}
 
-	const left = toLupaGitUri(target, 'HEAD');
-	const right = toLupaGitUri(target, 'WORKTREE');
+	const left = toFileviewGitUri(target, 'HEAD');
+	const right = toFileviewGitUri(target, 'WORKTREE');
 	const title = `${path.basename(target.fsPath)} (HEAD ↔ Working Tree)`;
 
 	output?.appendLine(`Opening git diff: ${left.toString()} | ${right.toString()}`);
@@ -37,7 +37,7 @@ export async function openGitChanges(
 		});
 	} catch (error) {
 		output?.appendLine(`Git diff failed: ${errorMessage(error)}`);
-		void vscode.window.showErrorMessage(`Lupa git diff failed: ${errorMessage(error)}`);
+		void vscode.window.showErrorMessage(`rbx-fileview git diff failed: ${errorMessage(error)}`);
 		throw error;
 	} finally {
 		endDiffOperation();

@@ -1,10 +1,10 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { errorMessage } from '../errorMessage';
-import { isRobloxFile, ROBLOX_EXTENSIONS } from '../lupaUri';
-import { buildDumpArgs } from '../lupaCli';
+import { isRobloxFile, ROBLOX_EXTENSIONS } from '../fileviewUri';
+import { buildDumpArgs } from '../fileviewCli';
 
-suite('Lupa CLI helpers', () => {
+suite('RBX-Fileview CLI helpers', () => {
 	test('buildDumpArgs includes dump target without stats', () => {
 		const args = buildDumpArgs('Test/sample.rbxm');
 
@@ -14,7 +14,7 @@ suite('Lupa CLI helpers', () => {
 	});
 });
 
-suite('Lupa URI helpers', () => {
+suite('RBX-Fileview URI helpers', () => {
 	test('isRobloxFile accepts known Roblox extensions', () => {
 		for (const extension of ROBLOX_EXTENSIONS) {
 			assert.strictEqual(isRobloxFile(vscode.Uri.file(`C:/game${extension}`)), true);
@@ -23,7 +23,7 @@ suite('Lupa URI helpers', () => {
 
 	test('isRobloxFile rejects non-Roblox files', () => {
 		assert.strictEqual(isRobloxFile(vscode.Uri.file('C:/game.txt')), false);
-		assert.strictEqual(isRobloxFile(vscode.Uri.parse('lupa:/Test/sample.rbxm')), false);
+		assert.strictEqual(isRobloxFile(vscode.Uri.parse('rbx-fileview:/Test/sample.rbxm')), false);
 	});
 });
 

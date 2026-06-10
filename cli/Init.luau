@@ -4,7 +4,7 @@ local Util = require("@self/util")
 local Help = require("@self/help")
 
 local VERSION = "0.0.1"
-local CLI_NAME = "lupa"
+local CLI_NAME = "rbx-fileview"
 
 local Color = Util.Color
 local Log = Util.Log

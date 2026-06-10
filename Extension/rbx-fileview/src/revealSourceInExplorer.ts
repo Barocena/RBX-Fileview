@@ -1,16 +1,16 @@
 import * as vscode from 'vscode';
-import { fromLupaUri, isLupaUri } from './lupaUri';
+import { fromFileviewUri, isFileviewUri } from './fileviewUri';
 
 function shouldAutoRevealInExplorer(): boolean {
 	const setting = vscode.workspace.getConfiguration('explorer').get<boolean | string>('autoReveal', true);
 	return setting !== false;
 }
 
-export async function revealLupaSourceInExplorer(uri: vscode.Uri | undefined): Promise<void> {
-	if (!uri || !isLupaUri(uri) || !shouldAutoRevealInExplorer()) {
+export async function revealFileviewSourceInExplorer(uri: vscode.Uri | undefined): Promise<void> {
+	if (!uri || !isFileviewUri(uri) || !shouldAutoRevealInExplorer()) {
 		return;
 	}
 
-	const sourceUri = fromLupaUri(uri);
+	const sourceUri = fromFileviewUri(uri);
 	await vscode.commands.executeCommand('revealInExplorer', sourceUri);
 }

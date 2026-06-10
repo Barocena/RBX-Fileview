@@ -1,8 +1,8 @@
-# Lupa
+# RBX-Fileview
 
 Human-readable, diff-friendly dumper for Roblox place and model files.
 
-Lupa deserializes `.rbxl`, `.rbxlx`, `.rbxm`, and `.rbxmx` files using [Lune](https://lune-org.github.io/) and prints a stable YAML instance tree suitable for terminal inspection, git diffs, and future VS Code integration.
+RBX-Fileview deserializes `.rbxl`, `.rbxlx`, `.rbxm`, and `.rbxmx` files using [Lune](https://lune-org.github.io/) and prints a stable YAML instance tree suitable for terminal inspection, git diffs, and future VS Code integration.
 
 ## Requirements
 
@@ -13,7 +13,7 @@ Lupa deserializes `.rbxl`, `.rbxlx`, `.rbxm`, and `.rbxmx` files using [Lune](ht
 ```powershell
 darklua process ./cli/Init.luau Out/Bundle.luau
 darklua minify Out/Bundle.luau Out/Bundle.luau
-lune build Out/Bundle.luau -o lupa.exe
+lune build Out/Bundle.luau -o rbx-fileview.exe
 ```
 
 Or run the **Compile CLI** task in VS Code.
@@ -27,13 +27,13 @@ darklua process ./cli/Init.luau Out/Bundle.luau
 lune run Out/Bundle.luau dump Test/sample.rbxl
 ```
 
-After building `lupa.exe`:
+After building `rbx-fileview.exe`:
 
 ```powershell
-lupa dump Test/sample.rbxm
-lupa dump Test/sample.rbxl -o place.yaml --stats
-lupa dump Test/sample.rbxl --max-depth 2 --no-properties
-lupa dump Test/Crossroads_2.rbxl --max-depth 2
+rbx-fileview dump Test/sample.rbxm
+rbx-fileview dump Test/sample.rbxl -o place.yaml --stats
+rbx-fileview dump Test/sample.rbxl --max-depth 2 --no-properties
+rbx-fileview dump Test/Crossroads_2.rbxl --max-depth 2
 ```
 
 ### Supported files
@@ -77,41 +77,41 @@ darklua process ./cli/Init.luau Out/Bundle.luau
 lune run Out/Bundle.luau benchmark
 ```
 
-After building `lupa.exe`:
+After building `rbx-fileview.exe`:
 
 ```powershell
-lupa benchmark
-lupa benchmark Test --iterations 5 --warmup 2
+rbx-fileview benchmark
+rbx-fileview benchmark Test --iterations 5 --warmup 2
 ```
 
 Each file is warmed up once (to populate caches), then measured over several iterations. The report shows file size, instance count, output size, and min/median/max dump time.
 
 ## VS Code extension
 
-The extension lives in [`Extension/lupa`](Extension/lupa). It opens Roblox files as a read-only virtual text document and runs `lupa dump` to show the YAML output in the normal editor. It also configures git textconv so Source Control diffs and **Lupa: Compare Active File With...** show side-by-side YAML instead of binary.
+The extension lives in [`Extension/rbx-fileview`](Extension/rbx-fileview). It opens Roblox files as a read-only virtual text document and runs `rbx-fileview dump` to show the YAML output in the normal editor. It also configures git textconv so Source Control diffs and **rbx-fileview: Compare Active File With...** show side-by-side YAML instead of binary.
 
 ```powershell
-cd Extension/lupa
+cd Extension/rbx-fileview
 pnpm install
 pnpm run compile
 ```
 
-Press **F5** in VS Code with the extension folder open to launch an Extension Development Host. Build `lupa.exe` in the repo root first, or set `lupa.cliPath` in settings.
+Press **F5** in VS Code with the extension folder open to launch an Extension Development Host. Build `rbx-fileview.exe` in the repo root first, or set `rbx-fileview.cliPath` in settings.
 
-See [Extension/lupa/README.md](Extension/lupa/README.md) for settings and commands.
+See [Extension/rbx-fileview/README.md](Extension/rbx-fileview/README.md) for settings and commands.
 
 ## Git diffs
 
 The VS Code extension configures this automatically per clone in `.git/info/attributes` and `.git/config` (nothing added to your working tree). For manual setup:
 
 ```gitattributes
-*.rbxl diff=lupa
-*.rbxm diff=lupa
+*.rbxl diff=rbx-fileview
+*.rbxm diff=rbx-fileview
 ```
 
 ```ini
-[diff "lupa"]
-    textconv = lupa dump
+[diff "rbx-fileview"]
+    textconv = rbx-fileview dump
 ```
 
 ## License

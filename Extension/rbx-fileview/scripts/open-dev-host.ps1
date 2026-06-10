@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "../../..")
-$extensionPath = Join-Path $repoRoot "Extension/lupa"
+$extensionPath = Join-Path $repoRoot "Extension/rbx-fileview"
 $cursorCmd = Join-Path $env:LOCALAPPDATA "Programs/cursor/resources/app/bin/cursor.cmd"
 
 if (-not (Test-Path $cursorCmd)) {
@@ -21,8 +21,8 @@ Write-Host "  workspace: $repoRoot"
 Write-Host ""
 Write-Host "In the NEW window, you should see:"
 Write-Host "  - title bar ends with [Extension Development Host]"
-Write-Host "  - a toast: Lupa extension loaded (development mode)"
-Write-Host "  - Extensions sidebar -> Lupa under Development Host"
+Write-Host "  - a toast: RBX-Fileview extension loaded (development mode)"
+Write-Host "  - Extensions sidebar -> RBX-Fileview under Development Host"
 Write-Host ""
 Write-Host "If you only get a normal window, run: pnpm run install-local"
 

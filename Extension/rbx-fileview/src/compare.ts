@@ -2,13 +2,13 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { beginDiffOperation, endDiffOperation } from './diffGuard';
 import { errorMessage } from './errorMessage';
-import { fromLupaUri, isLupaUri, isRobloxFile, toLupaUri } from './lupaUri';
+import { fromFileviewUri, isFileviewUri, isRobloxFile, toFileviewUri } from './fileviewUri';
 import { robloxFileKey } from './robloxUri';
 
 let compareSource: vscode.Uri | undefined;
 
 export function setCompareSourceContext(active: boolean): void {
-	void vscode.commands.executeCommand('setContext', 'lupa.compareSourceSet', active);
+	void vscode.commands.executeCommand('setContext', 'rbx-fileview.compareSourceSet', active);
 }
 
 export function resolveRobloxFileUri(uri: vscode.Uri): vscode.Uri | undefined {
@@ -16,21 +16,21 @@ export function resolveRobloxFileUri(uri: vscode.Uri): vscode.Uri | undefined {
 		return uri;
 	}
 
-	if (isLupaUri(uri)) {
-		return fromLupaUri(uri);
+	if (isFileviewUri(uri)) {
+		return fromFileviewUri(uri);
 	}
 
 	return undefined;
 }
 
 function diffTitle(left: vscode.Uri, right: vscode.Uri): string {
-	return `${path.basename(left.fsPath)} ↔ ${path.basename(right.fsPath)} (Lupa)`;
+	return `${path.basename(left.fsPath)} ↔ ${path.basename(right.fsPath)} (RBX-Fileview)`;
 }
 
 function toDiffSideUri(fileUri: vscode.Uri, side: 'left' | 'right'): vscode.Uri {
 	const params = new URLSearchParams();
 	params.set('side', side);
-	return toLupaUri(fileUri).with({ query: params.toString() });
+	return toFileviewUri(fileUri).with({ query: params.toString() });
 }
 
 export async function openRobloxDiff(
@@ -38,19 +38,19 @@ export async function openRobloxDiff(
 	rightFile: vscode.Uri,
 	output?: vscode.OutputChannel,
 ): Promise<void> {
-	const leftLupa = toDiffSideUri(leftFile, 'left');
-	const rightLupa = toDiffSideUri(rightFile, 'right');
+	const leftFileview = toDiffSideUri(leftFile, 'left');
+	const rightFileview = toDiffSideUri(rightFile, 'right');
 
-	output?.appendLine(`Opening diff: ${leftLupa.toString()} | ${rightLupa.toString()}`);
+	output?.appendLine(`Opening diff: ${leftFileview.toString()} | ${rightFileview.toString()}`);
 
 	beginDiffOperation();
 	try {
-		await vscode.commands.executeCommand('vscode.diff', leftLupa, rightLupa, diffTitle(leftFile, rightFile), {
+		await vscode.commands.executeCommand('vscode.diff', leftFileview, rightFileview, diffTitle(leftFile, rightFile), {
 			preview: false,
 		});
 	} catch (error) {
 		output?.appendLine(`Diff failed: ${errorMessage(error)}`);
-		void vscode.window.showErrorMessage(`Lupa diff failed: ${errorMessage(error)}`);
+		void vscode.window.showErrorMessage(`rbx-fileview diff failed: ${errorMessage(error)}`);
 		throw error;
 	} finally {
 		endDiffOperation();
@@ -73,7 +73,7 @@ export async function selectForCompare(uri?: vscode.Uri): Promise<void> {
 
 export async function compareWithSelected(uri?: vscode.Uri, output?: vscode.OutputChannel): Promise<void> {
 	if (!compareSource) {
-		void vscode.window.showWarningMessage('Select a file for compare first (Lupa: Select for Compare).');
+		void vscode.window.showWarningMessage('Select a file for compare first (rbx-fileview: Select for Compare).');
 		return;
 	}
 

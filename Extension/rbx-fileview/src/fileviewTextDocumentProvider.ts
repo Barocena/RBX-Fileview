@@ -2,9 +2,9 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { errorMessage } from './errorMessage';
 import { dumpRobloxFileAtRef } from './gitRefDump';
-import { fromLupaUri, getLupaGitRef, isLupaUri, isRobloxFile, LUPA_SCHEME, toLupaUri } from './lupaUri';
+import { fromFileviewUri, getFileviewGitRef, isFileviewUri, isRobloxFile, FILEVIEW_SCHEME, toFileviewUri } from './fileviewUri';
 
-export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvider {
+export class FileviewTextDocumentProvider implements vscode.TextDocumentContentProvider {
 	private readonly changeEmitter = new vscode.EventEmitter<vscode.Uri>();
 	readonly onDidChange = this.changeEmitter.event;
 
@@ -19,8 +19,8 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 		uri: vscode.Uri,
 		_token: vscode.CancellationToken,
 	): Promise<string> {
-		const sourceUri = fromLupaUri(uri);
-		const ref = getLupaGitRef(uri);
+		const sourceUri = fromFileviewUri(uri);
+		const ref = getFileviewGitRef(uri);
 
 		this.output?.appendLine(`provideTextDocumentContent: ${uri.toString()} (ref=${ref})`);
 
@@ -40,7 +40,7 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 
 	refresh(uri?: vscode.Uri): void {
 		if (uri) {
-			if (isLupaUri(uri)) {
+			if (isFileviewUri(uri)) {
 				this.changeEmitter.fire(uri);
 				return;
 			}
@@ -52,7 +52,7 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 		}
 
 		for (const document of vscode.workspace.textDocuments) {
-			if (document.uri.scheme === LUPA_SCHEME) {
+			if (document.uri.scheme === FILEVIEW_SCHEME) {
 				this.changeEmitter.fire(document.uri);
 			}
 		}
@@ -60,7 +60,7 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 
 	/** Re-dump before opening or refocusing a tab. VS Code caches virtual documents. */
 	prepareOpen(sourceUri: vscode.Uri): void {
-		if (getLupaGitRef(toLupaUri(sourceUri)) === 'WORKTREE') {
+		if (getFileviewGitRef(toFileviewUri(sourceUri)) === 'WORKTREE') {
 			this.ensureWatcher(sourceUri);
 		}
 		this.fireRefreshForSourceFile(sourceUri);
@@ -69,17 +69,17 @@ export class LupaTextDocumentProvider implements vscode.TextDocumentContentProvi
 	private fireRefreshForSourceFile(sourceUri: vscode.Uri): void {
 		const key = sourceUri.fsPath;
 		for (const document of vscode.workspace.textDocuments) {
-			if (document.uri.scheme !== LUPA_SCHEME) {
+			if (document.uri.scheme !== FILEVIEW_SCHEME) {
 				continue;
 			}
 
-			if (fromLupaUri(document.uri).fsPath === key) {
+			if (fromFileviewUri(document.uri).fsPath === key) {
 				this.changeEmitter.fire(document.uri);
 			}
 		}
 
-		// Explorer tabs use lupa: URIs without a query; fire that canonical URI too.
-		this.changeEmitter.fire(toLupaUri(sourceUri));
+		// Explorer tabs use rbx-fileview: URIs without a query; fire that canonical URI too.
+		this.changeEmitter.fire(toFileviewUri(sourceUri));
 	}
 
 	private ensureWatcher(sourceUri: vscode.Uri): void {

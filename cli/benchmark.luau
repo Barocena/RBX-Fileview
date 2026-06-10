@@ -20,7 +20,7 @@ local ROBLOX_EXTENSIONS = {
 local Benchmark = {}
 
 local function printHelp()
-	print("Usage: lupa benchmark [directory] [options]")
+	print("Usage: rbx-fileview benchmark [directory] [options]")
 	print("")
 	print("Benchmark dump performance for Roblox files in a directory.")
 	print("Defaults to the Test/ folder when no directory is given.")
@@ -206,7 +206,7 @@ function Benchmark.run(args: { string })
 
 	if not ok then
 		stdio.ewrite(`Error: {result}\n`)
-		stdio.ewrite("Run `lupa benchmark --help` for usage.\n")
+		stdio.ewrite("Run `rbx-fileview benchmark --help` for usage.\n")
 		process.exit(1)
 	end
 
@@ -218,7 +218,7 @@ function Benchmark.run(args: { string })
 		process.exit(1)
 	end
 
-	print("Lupa dump benchmark")
+	print("RBX-Fileview dump benchmark")
 	print(`Directory: {options.testDir}`)
 	print(`Files: {#files} | warmup: {options.warmup} | iterations: {options.iterations}`)
 	print("")
