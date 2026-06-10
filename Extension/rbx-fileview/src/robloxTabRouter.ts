@@ -13,6 +13,7 @@ import {
 	viewColumnForTab,
 } from './robloxTabs';
 import { openFileviewDocument } from './openRobloxFile';
+import { markScmOriginatedOpen } from './scmOpenContext';
 import { openGitChanges } from './scmDiff';
 
 const handledFiles = new Set<string>();
@@ -103,6 +104,10 @@ export async function routeRobloxFileOpen(
 	const intent = options?.intent ?? 'explorer';
 	const normalized = normalizeRobloxFileUri(fileUri);
 	const key = robloxFileKey(normalized);
+
+	// Tab-router opens come from SCM or Explorer placeholder tabs (file:// / git://),
+	// not from rbx-fileview commands. Skip explorer reveal for these so SCM stays focused.
+	markScmOriginatedOpen(normalized);
 
 	// Always refocus an existing RBX-Fileview tab — even during the new-open debounce window.
 	if (await focusExistingView(normalized, intent, textProvider, options?.sourceTab)) {

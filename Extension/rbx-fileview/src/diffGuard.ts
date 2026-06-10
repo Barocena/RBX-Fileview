@@ -25,6 +25,16 @@ function uriPathVariants(uri: vscode.Uri): vscode.Uri[] {
 	return [uri];
 }
 
+export function isActiveDiffTab(): boolean {
+	for (const group of vscode.window.tabGroups.all) {
+		if (group.activeTab?.input instanceof vscode.TabInputTextDiff) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 export function isInDiffContext(fileUri?: vscode.Uri): boolean {
 	if (diffOperationDepth > 0) {
 		return true;
