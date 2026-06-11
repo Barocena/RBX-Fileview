@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { errorMessage } from '../errorMessage';
 import { isRobloxFile, ROBLOX_EXTENSIONS } from '../fileviewUri';
-import { buildDumpArgs } from '../fileviewCli';
+import { buildDumpArgs, DEFAULT_EXCLUDED_PROPERTIES } from '../fileviewCli';
 
 suite('RBX-Fileview CLI helpers', () => {
 	test('buildDumpArgs includes dump target without stats', () => {
@@ -11,6 +11,25 @@ suite('RBX-Fileview CLI helpers', () => {
 		assert.ok(args.includes('dump'));
 		assert.ok(args.includes('Test/sample.rbxm'));
 		assert.ok(!args.includes('--stats'));
+	});
+
+	test('buildDumpArgs passes excluded properties as a comma-separated CLI value', () => {
+		const args = buildDumpArgs('Test/sample.rbxm', { excludedProperties: ['Source', 'LinkedSource'] });
+		const flagIndex = args.indexOf('--exclude-property');
+
+		assert.ok(flagIndex >= 0);
+		assert.strictEqual(args[flagIndex + 1], 'Source,LinkedSource');
+	});
+
+	test('buildDumpArgs clears exclusions when the list is empty', () => {
+		const args = buildDumpArgs('Test/sample.rbxm', { excludedProperties: [] });
+
+		assert.ok(args.includes('--no-excluded-properties'));
+		assert.ok(!args.includes('--exclude-property'));
+	});
+
+	test('default excluded properties include Source', () => {
+		assert.deepStrictEqual(DEFAULT_EXCLUDED_PROPERTIES, ['Source']);
 	});
 });
 

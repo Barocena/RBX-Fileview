@@ -4,7 +4,7 @@ local Properties = require("./properties")
 export type TreeOptions = {
 	full: boolean,
 	includeProperties: boolean,
-	includeSource: boolean,
+	excludedProperties: { [string]: boolean },
 	maxDepth: number?,
 }
 
@@ -60,7 +60,7 @@ local function buildNode(
 		local collected = Properties.collect(instance, {
 			full = options.full,
 			includeProperties = true,
-			includeSource = options.includeSource,
+			excludedProperties = options.excludedProperties,
 			pathMap = pathMap,
 		})
 

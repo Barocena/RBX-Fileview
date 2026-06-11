@@ -12,10 +12,12 @@ export interface DumpResult {
 	stderr: string;
 }
 
+export const DEFAULT_EXCLUDED_PROPERTIES = ['Source'];
+
 export interface DumpOptions {
 	maxDepth?: number;
 	includeProperties?: boolean;
-	includeSource?: boolean;
+	excludedProperties?: string[];
 	full?: boolean;
 }
 
@@ -86,7 +88,8 @@ export function buildDumpArgs(filePath: string, options: DumpOptions = {}): stri
 	const maxDepth = options.maxDepth ?? config.get<number | null>('maxDepth', null);
 	const full = options.full ?? config.get<boolean>('includeFullProperties', false);
 	const includeProperties = options.includeProperties ?? true;
-	const includeSource = options.includeSource ?? config.get<boolean>('includeSource', true);
+	const excludedProperties =
+		options.excludedProperties ?? config.get<string[]>('excludedProperties', DEFAULT_EXCLUDED_PROPERTIES);
 
 	const args = ['dump', filePath];
 
@@ -102,8 +105,13 @@ export function buildDumpArgs(filePath: string, options: DumpOptions = {}): stri
 		args.push('--no-properties');
 	}
 
-	if (!includeSource) {
-		args.push('--no-source');
+	if (excludedProperties.length === 0) {
+		args.push('--no-excluded-properties');
+	} else {
+		const names = excludedProperties.map((name) => name.trim()).filter((name) => name.length > 0);
+		if (names.length > 0) {
+			args.push('--exclude-property', names.join(','));
+		}
 	}
 
 	return args;

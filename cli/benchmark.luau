@@ -157,7 +157,10 @@ local function padRight(text: string, width: number): string
 	return text .. string.rep(" ", width - #text)
 end
 
-local function benchmarkFile(filePath: string, options: BenchmarkOptions): {
+local function benchmarkFile(
+	filePath: string,
+	options: BenchmarkOptions
+): {
 	fileName: string,
 	fileSize: number,
 	instanceCount: number,
@@ -234,7 +237,10 @@ function Benchmark.run(args: { string })
 	end
 
 	print(
-		`{padRight("file", nameWidth)}  {padRight("size", sizeWidth)}  {padRight("inst", instWidth)}  {padRight("out", outWidth)}  {padRight("min", timeWidth)}  {padRight("median", timeWidth)}  max`
+		`{padRight("file", nameWidth)}  {padRight("size", sizeWidth)}  {padRight("inst", instWidth)}  {padRight(
+			"out",
+			outWidth
+		)}  {padRight("min", timeWidth)}  {padRight("median", timeWidth)}  max`
 	)
 	print(string.rep("-", nameWidth + sizeWidth + instWidth + outWidth + timeWidth * 3 + 12))
 
@@ -246,7 +252,13 @@ function Benchmark.run(args: { string })
 		totalMedian += row.medianSeconds
 
 		print(
-			`{padRight(row.fileName, nameWidth)}  {padRight(formatBytes(row.fileSize), sizeWidth)}  {padRight(tostring(row.instanceCount), instWidth)}  {padRight(formatBytes(row.outputBytes), outWidth)}  {padRight(formatMs(row.minSeconds), timeWidth)}  {padRight(formatMs(row.medianSeconds), timeWidth)}  {formatMs(row.maxSeconds)}`
+			`{padRight(row.fileName, nameWidth)}  {padRight(formatBytes(row.fileSize), sizeWidth)}  {padRight(
+				tostring(row.instanceCount),
+				instWidth
+			)}  {padRight(formatBytes(row.outputBytes), outWidth)}  {padRight(formatMs(row.minSeconds), timeWidth)}  {padRight(
+				formatMs(row.medianSeconds),
+				timeWidth
+			)}  {formatMs(row.maxSeconds)}`
 		)
 	end
 

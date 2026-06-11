@@ -81,7 +81,7 @@ lune build Out/Bundle.luau -o rbx-fileview.exe
 | `rbx-fileview.cliPath` | `rbx-fileview` | Path to the rbx-fileview executable |
 | `rbx-fileview.maxDepth` | `null` | Optional depth limit for large files |
 | `rbx-fileview.includeFullProperties` | `false` | Pass `--full` to include default properties |
-| `rbx-fileview.includeSource` | `true` | Include script `Source` text; set `false` for shorter place dumps |
+| `rbx-fileview.excludedProperties` | `["Source"]` | Property names omitted from dump output |
 | `rbx-fileview.setupGitDiff` | `true` | Configure git textconv for YAML diffs in Source Control |
 
 ## Commands

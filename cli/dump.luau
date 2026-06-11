@@ -1,7 +1,6 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local stdio = require("@lune/stdio")
-
 local Load = require("@self/lib/load")
 local Tree = require("@self/lib/tree")
 local YamlFormat = require("@self/lib/format/yaml")
@@ -9,7 +8,7 @@ local YamlFormat = require("@self/lib/format/yaml")
 export type DumpRunOptions = {
 	full: boolean?,
 	includeProperties: boolean?,
-	includeSource: boolean?,
+	excludedProperties: { string }?,
 	maxDepth: number?,
 }
 
@@ -17,6 +16,7 @@ export type DumpCliOptions = DumpRunOptions & {
 	filePath: string?,
 	outputPath: string?,
 	stats: boolean,
+	excludedPropertiesExplicit: boolean?,
 }
 
 export type DumpResult = {
@@ -26,35 +26,67 @@ export type DumpResult = {
 
 local Dump = {}
 
+local DEFAULT_EXCLUDED_PROPERTIES = { "Source" }
 local DEFAULT_RUN_OPTIONS: DumpRunOptions = {
 	full = false,
 	includeProperties = true,
-	includeSource = true,
+	excludedProperties = DEFAULT_EXCLUDED_PROPERTIES,
 	maxDepth = nil,
 }
+
+local function buildExcludedPropertySet(names: { string }): { [string]: boolean }
+	local set: { [string]: boolean } = {}
+
+	for _, name in names do
+		set[name] = true
+	end
+
+	return set
+end
+
+local function appendExcludedProperties(target: { string }, value: string)
+	for name in string.gmatch(value, "[^,]+") do
+		local trimmed = (name:match("^%s*(.-)%s*$")) :: string
+		if trimmed ~= "" then
+			table.insert(target, trimmed)
+		end
+	end
+end
+
+local function resolveExcludedProperties(options: DumpRunOptions?): { string }
+	if options and options.excludedProperties ~= nil then
+		return options.excludedProperties
+	end
+
+	return DEFAULT_EXCLUDED_PROPERTIES
+end
 
 local function resolveRunOptions(options: DumpRunOptions?): DumpRunOptions
 	return {
 		full = options and options.full ~= nil and options.full or DEFAULT_RUN_OPTIONS.full,
+
 		includeProperties = options and options.includeProperties ~= nil and options.includeProperties
 			or DEFAULT_RUN_OPTIONS.includeProperties,
-		includeSource = options and options.includeSource ~= nil and options.includeSource
-			or DEFAULT_RUN_OPTIONS.includeSource,
+
+		excludedProperties = resolveExcludedProperties(options),
 		maxDepth = if options then options.maxDepth else DEFAULT_RUN_OPTIONS.maxDepth,
 	}
 end
 
 function Dump.dumpFile(filePath: string, options: DumpRunOptions?): DumpResult
 	local runOptions = resolveRunOptions(options)
+
 	local loaded = Load.loadFile(filePath)
+
 	local treeOptions: Tree.TreeOptions = {
 		full = runOptions.full :: boolean,
 		includeProperties = runOptions.includeProperties :: boolean,
-		includeSource = runOptions.includeSource :: boolean,
+		excludedProperties = buildExcludedPropertySet(runOptions.excludedProperties :: { string }),
 		maxDepth = runOptions.maxDepth,
 	}
 
 	local treeResult
+
 	if loaded.kind == "place" then
 		treeResult = Tree.buildPlace(loaded.root, treeOptions)
 	else
@@ -76,7 +108,8 @@ local function printHelp()
 	print("  --max-depth <n>         Limit traversal depth")
 	print("  --properties            Include properties (default)")
 	print("  --no-properties         Instance structure only")
-	print("  --no-source             Omit script Source property text")
+	print("  --exclude-property <names>  Omit properties (comma-separated, repeatable)")
+	print("  --no-excluded-properties  Dump all properties, including Source")
 	print("  --stats                 Print instance counts to stderr")
 	print("  -h, --help              Show this help message")
 end
@@ -87,12 +120,14 @@ local function parseArgs(args: { string }): DumpCliOptions
 		outputPath = nil,
 		full = false,
 		includeProperties = true,
-		includeSource = true,
+		excludedProperties = {},
 		maxDepth = nil,
 		stats = false,
+		excludedPropertiesExplicit = false,
 	}
 
 	local index = 1
+
 	while index <= #args do
 		local arg = args[index]
 
@@ -118,8 +153,21 @@ local function parseArgs(args: { string }): DumpCliOptions
 			options.includeProperties = true
 		elseif arg == "--no-properties" then
 			options.includeProperties = false
+		elseif arg == "--exclude-property" then
+			index += 1
+			local propertyNames = args[index]
+			if not propertyNames or propertyNames == "" then
+				error("Missing value for --exclude-property")
+			end
+			appendExcludedProperties(options.excludedProperties :: { string }, propertyNames)
+			options.excludedPropertiesExplicit = true
+		elseif arg == "--no-excluded-properties" then
+			options.excludedProperties = {}
+			options.excludedPropertiesExplicit = true
 		elseif arg == "--no-source" then
-			options.includeSource = false
+			error(
+				"The --no-source option was removed. Use --exclude-property Source (default) or --no-excluded-properties."
+			)
 		elseif arg == "--stats" then
 			options.stats = true
 		elseif arg == "--format" then
@@ -140,6 +188,10 @@ local function parseArgs(args: { string }): DumpCliOptions
 		error("Missing required file path")
 	end
 
+	if not options.excludedPropertiesExplicit then
+		options.excludedProperties = table.clone(DEFAULT_EXCLUDED_PROPERTIES)
+	end
+
 	return options
 end
 
@@ -158,9 +210,7 @@ function Dump.run(args: { string })
 	local dumpResult = Dump.dumpFile(options.filePath :: string, options)
 
 	if options.stats then
-		stdio.ewrite(
-			`Instances: {dumpResult.stats.instanceCount}, max depth: {dumpResult.stats.maxDepthReached}\n`
-		)
+		stdio.ewrite(`Instances: {dumpResult.stats.instanceCount}, max depth: {dumpResult.stats.maxDepthReached}\n`)
 	end
 
 	local output = dumpResult.output

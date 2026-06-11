@@ -4,7 +4,7 @@ local Values = require("./values")
 export type PropertyOptions = {
 	full: boolean,
 	includeProperties: boolean,
-	includeSource: boolean,
+	excludedProperties: { [string]: boolean },
 	pathMap: { [Instance]: string },
 }
 
@@ -150,7 +150,7 @@ function Properties.collect(instance: Instance, options: PropertyOptions): Colle
 	}
 
 	for _, entry in cache.entries do
-		if not options.includeSource and entry.name == "Source" then
+		if options.excludedProperties[entry.name] then
 			continue
 		end
 
