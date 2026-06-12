@@ -29,16 +29,84 @@ export type TreeResult = {
 
 local Tree = {}
 
-local function compareInstances(a: Instance, b: Instance): boolean
-	if a.Name ~= b.Name then
-		return a.Name < b.Name
+local ZERO_UNIQUE_ID = "00000000000000000000000000000000"
+
+type ChildSortEntry = {
+	instance: Instance,
+	name: string,
+	className: string,
+	uniqueId: string,
+	fileOrder: number,
+}
+
+local function readUniqueIdString(instance: Instance): string
+	local uid = (instance :: any).UniqueId
+	if typeof(uid) ~= "UniqueId" then
+		return ""
 	end
 
-	return a.ClassName < b.ClassName
+	local id = tostring(uid)
+	if id == ZERO_UNIQUE_ID then
+		return ""
+	end
+
+	return id
+end
+
+local function compareSortEntries(a: ChildSortEntry, b: ChildSortEntry): boolean
+	if a.name ~= b.name then
+		return a.name < b.name
+	end
+
+	if a.className ~= b.className then
+		return a.className < b.className
+	end
+
+	if a.uniqueId ~= "" and b.uniqueId ~= "" and a.uniqueId ~= b.uniqueId then
+		return a.uniqueId < b.uniqueId
+	end
+
+	return a.fileOrder < b.fileOrder
 end
 
 local function sortChildren(children: { Instance })
-	table.sort(children, compareInstances)
+	local count = #children
+	if count <= 1 then
+		return
+	end
+
+	local entries = table.create(count)
+	local labelCounts: { [string]: number } = {}
+
+	for index = 1, count do
+		local child = children[index]
+		local name = child.Name
+		local className = child.ClassName
+		local labelKey = name .. "\0" .. className
+		labelCounts[labelKey] = (labelCounts[labelKey] or 0) + 1
+
+		entries[index] = {
+			instance = child,
+			name = name,
+			className = className,
+			uniqueId = "",
+			fileOrder = index,
+		}
+	end
+
+	for index = 1, count do
+		local entry = entries[index]
+		local labelKey = entry.name .. "\0" .. entry.className
+		if (labelCounts[labelKey] or 0) > 1 then
+			entry.uniqueId = readUniqueIdString(entry.instance)
+		end
+	end
+
+	table.sort(entries, compareSortEntries)
+
+	for index = 1, count do
+		children[index] = entries[index].instance
+	end
 end
 
 local function buildNode(
