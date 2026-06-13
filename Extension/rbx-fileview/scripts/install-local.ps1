@@ -14,7 +14,7 @@ try {
 	pnpm run compile
 
 	Write-Host "Packaging VSIX..."
-	pnpm exec vsce package --no-dependencies --allow-missing-repository -o rbx-fileview.vsix
+	pnpm exec vsce package --no-dependencies -o rbx-fileview.vsix
 
 	if (-not (Test-Path $vsixPath)) {
 		Write-Error "VSIX was not created at $vsixPath"
@@ -25,6 +25,7 @@ try {
 
 	Write-Host ""
 	Write-Host "Done. Reload IDE (Ctrl+Shift+P -> Developer: Reload Window), then open a .rbxm file."
+	Write-Host "Note: bundled CLI is disabled; rbx-fileview must be on PATH or set via rbx-fileview.cliPath."
 }
 finally {
 	Pop-Location

@@ -92,8 +92,8 @@ async function ensureGitConfig(gitRoot: string, textconv: string, output: vscode
 
 export async function setupGitDiffSupport(output: vscode.OutputChannel): Promise<void> {
 	const config = vscode.workspace.getConfiguration('rbx-fileview');
-	if (!config.get<boolean>('setupGitDiff', true)) {
-		output.appendLine('Git diff setup disabled (rbx-fileview.setupGitDiff = false).');
+	if (!config.get<boolean>('setupGitConfig', true)) {
+		output.appendLine('Git config setup disabled (rbx-fileview.setupGitConfig = false).');
 		return;
 	}
 

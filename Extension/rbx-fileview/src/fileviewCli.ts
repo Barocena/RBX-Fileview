@@ -3,16 +3,50 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import * as vscode from 'vscode';
+import { isBundledCliEnabled, resolveBundledCliPath } from './bundledCli';
 
 const execFileAsync = promisify(execFile);
 const CLI_EXECUTABLE = process.platform === 'win32' ? 'rbx-fileview.exe' : 'rbx-fileview';
+const DEFAULT_CLI_ON_PATH = 'rbx-fileview';
+
+let extensionContext: vscode.ExtensionContext | undefined;
+let managedCliPath: string | undefined;
+
+export function setExtensionContext(context: vscode.ExtensionContext): void {
+	extensionContext = context;
+}
+
+export function setManagedCliPath(cliPath: string | undefined): void {
+	managedCliPath = cliPath;
+}
+
+async function resolveManagedCliPath(): Promise<string | undefined> {
+	if (!isBundledCliEnabled()) {
+		return undefined;
+	}
+
+	if (managedCliPath && (await fileExists(managedCliPath))) {
+		return managedCliPath;
+	}
+
+	if (!extensionContext) {
+		return undefined;
+	}
+
+	const resolved = await resolveBundledCliPath(extensionContext);
+	if (resolved) {
+		managedCliPath = resolved;
+	}
+
+	return resolved;
+}
 
 export interface DumpResult {
 	stdout: string;
 	stderr: string;
 }
 
-export const DEFAULT_EXCLUDED_PROPERTIES = ['Source'];
+export const DEFAULT_EXCLUDED_PROPERTIES: string[] = [];
 
 export interface DumpOptions {
 	maxDepth?: number;
@@ -60,12 +94,25 @@ async function findCliNearFile(filePath: string): Promise<string | undefined> {
 	return undefined;
 }
 
+function usesDefaultCliResolution(configured: string): boolean {
+	if (configured.length === 0) {
+		return true;
+	}
+
+	return configured === DEFAULT_CLI_ON_PATH || configured === `${DEFAULT_CLI_ON_PATH}.exe`;
+}
+
 export async function resolveCliPath(filePath?: string): Promise<string> {
 	const config = vscode.workspace.getConfiguration('rbx-fileview');
-	const configured = config.get<string>('cliPath', 'rbx-fileview').trim();
+	const configured = config.get<string>('cliPath', '').trim();
 
-	if (configured !== 'rbx-fileview' && configured !== 'rbx-fileview.exe') {
+	if (!usesDefaultCliResolution(configured)) {
 		return configured;
+	}
+
+	const bundled = await resolveManagedCliPath();
+	if (bundled) {
+		return bundled;
 	}
 
 	if (filePath) {
@@ -80,13 +127,13 @@ export async function resolveCliPath(filePath?: string): Promise<string> {
 		return inWorkspace;
 	}
 
-	return configured;
+	return CLI_EXECUTABLE;
 }
 
 export function buildDumpArgs(filePath: string, options: DumpOptions = {}): string[] {
 	const config = vscode.workspace.getConfiguration('rbx-fileview');
 	const maxDepth = options.maxDepth ?? config.get<number | null>('maxDepth', null);
-	const full = options.full ?? config.get<boolean>('includeFullProperties', false);
+	const full = options.full ?? config.get<boolean>('includeDefaultProperties', false);
 	const includeProperties = options.includeProperties ?? true;
 	const excludedProperties =
 		options.excludedProperties ?? config.get<string[]>('excludedProperties', DEFAULT_EXCLUDED_PROPERTIES);
@@ -98,16 +145,14 @@ export function buildDumpArgs(filePath: string, options: DumpOptions = {}): stri
 	}
 
 	if (full) {
-		args.push('--full');
+		args.push('--include-default-properties');
 	}
 
 	if (!includeProperties) {
 		args.push('--no-properties');
 	}
 
-	if (excludedProperties.length === 0) {
-		args.push('--no-excluded-properties');
-	} else {
+	if (excludedProperties.length > 0) {
 		const names = excludedProperties.map((name) => name.trim()).filter((name) => name.length > 0);
 		if (names.length > 0) {
 			args.push('--exclude-property', names.join(','));
@@ -145,7 +190,7 @@ export async function dumpRobloxFile(
 		if (execError.code === 'ENOENT') {
 			throw new Error(
 				`rbx-fileview CLI not found at "${cliPath}". ` +
-					'Build rbx-fileview.exe in the project root or set "rbx-fileview.cliPath" in settings.',
+					'Install rbx-fileview on PATH, place rbx-fileview.exe in the workspace root, or set "rbx-fileview.cliPath".',
 			);
 		}
 

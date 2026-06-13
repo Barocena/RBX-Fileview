@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { errorMessage } from '../errorMessage';
 import { isRobloxFile, ROBLOX_EXTENSIONS } from '../fileviewUri';
+import { getVsceTarget } from '../bundledCli';
 import { buildDumpArgs, DEFAULT_EXCLUDED_PROPERTIES } from '../fileviewCli';
 
 suite('RBX-Fileview CLI helpers', () => {
@@ -21,15 +22,31 @@ suite('RBX-Fileview CLI helpers', () => {
 		assert.strictEqual(args[flagIndex + 1], 'Source,LinkedSource');
 	});
 
-	test('buildDumpArgs clears exclusions when the list is empty', () => {
+	test('buildDumpArgs passes include-default-properties when full is enabled', () => {
+		const args = buildDumpArgs('Test/sample.rbxm', { full: true });
+
+		assert.ok(args.includes('--include-default-properties'));
+		assert.ok(!args.includes('--full'));
+	});
+
+	test('buildDumpArgs omits exclusion flags when the list is empty', () => {
 		const args = buildDumpArgs('Test/sample.rbxm', { excludedProperties: [] });
 
-		assert.ok(args.includes('--no-excluded-properties'));
+		assert.ok(!args.includes('--no-excluded-properties'));
 		assert.ok(!args.includes('--exclude-property'));
 	});
 
-	test('default excluded properties include Source', () => {
-		assert.deepStrictEqual(DEFAULT_EXCLUDED_PROPERTIES, ['Source']);
+	test('default excluded properties are empty', () => {
+		assert.deepStrictEqual(DEFAULT_EXCLUDED_PROPERTIES, []);
+	});
+});
+
+suite('Bundled CLI helpers', () => {
+	test('getVsceTarget returns a known platform on CI hosts', () => {
+		const target = getVsceTarget();
+		if (process.platform === 'win32' && process.arch === 'x64') {
+			assert.strictEqual(target, 'win32-x64');
+		}
 	});
 });
 

@@ -127,24 +127,14 @@ export async function routeRobloxFileOpen(
 	const viewColumn = viewColumnForTab(options?.sourceTab);
 
 	try {
-		const config = vscode.workspace.getConfiguration('rbx-fileview');
-		const openByDefault = config.get<boolean>('openByDefault', true);
-		const openScmDiff = config.get<boolean>('openDiffForChangedFiles', true);
-
 		await sweepPlaceholderTabs(normalized, intent);
 
 		if (intent === 'scmDiff') {
-			if (!openScmDiff) {
-				return;
-			}
-
 			output.appendLine(`Routing SCM Roblox diff to rbx-fileview: ${normalized.fsPath}`);
 			await openGitChanges(normalized, output, { viewColumn });
-		} else if (openByDefault) {
+		} else {
 			output.appendLine(`Routing Roblox file to RBX-Fileview text view: ${normalized.fsPath}`);
 			await openFileviewDocument(normalized, output, { viewColumn, preview: false }, textProvider);
-		} else {
-			return;
 		}
 
 		void schedulePlaceholderSweep(normalized, intent);

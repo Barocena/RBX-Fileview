@@ -1,0 +1,100 @@
+name: Release CLI
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v1.0.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.artifact-name }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact-name: rbx-fileview-windows-x86_64
+            target: windows-x86_64
+            binary: rbx-fileview.exe
+
+          - artifact-name: rbx-fileview-linux-x86_64
+            target: linux-x86_64
+            binary: rbx-fileview
+
+          - artifact-name: rbx-fileview-linux-aarch64
+            target: linux-aarch64
+            binary: rbx-fileview
+
+          - artifact-name: rbx-fileview-macos-x86_64
+            target: macos-x86_64
+            binary: rbx-fileview
+
+          - artifact-name: rbx-fileview-macos-aarch64
+            target: macos-aarch64
+            binary: rbx-fileview
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Bundle code
+        run: |
+          darklua process ./cli/Init.luau Out/Bundle.luau
+          darklua minify Out/Bundle.luau Out/Bundle.luau
+
+      - name: Build binary
+        run: |
+          lune build Out/Bundle.luau \
+            --target ${{ matrix.target }} \
+            --output ${{ matrix.artifact-name }}
+
+      - name: Fix binary name
+        run: |
+          if [[ "${{ matrix.target }}" == windows-* ]]; then
+            mv ${{ matrix.artifact-name }}.exe ${{ matrix.binary }}
+          else
+            mv ${{ matrix.artifact-name }} ${{ matrix.binary }}
+          fi
+
+      - name: Create archive
+        run: |
+          zip ${{ matrix.artifact-name }}.zip ${{ matrix.binary }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-name }}.zip
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Collect release files
+        run: |
+          mkdir release
+          find . -name "*.zip" -exec cp {} release/ \;
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          draft: true
+          files: release/*.zip

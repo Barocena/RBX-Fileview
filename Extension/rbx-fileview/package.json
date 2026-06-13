@@ -2,9 +2,19 @@
   "name": "rbx-fileview",
   "displayName": "RBX-Fileview",
   "description": "Human-readable viewer for Roblox place and model files.",
-  "version": "0.0.12",
-  "publisher": "rbx-fileview",
+  "icon": "images/icon.png",
+  "version": "0.0.1",
+  "publisher": "Barocena",
+  "author": "Barocena",
   "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Barocena/RBX-Fileview.git"
+  },
+  "homepage": "https://github.com/Barocena/RBX-Fileview#readme",
+  "bugs": {
+    "url": "https://github.com/Barocena/RBX-Fileview/issues"
+  },
   "engines": {
     "vscode": "^1.105.0"
   },
@@ -166,8 +176,8 @@
       "properties": {
         "rbx-fileview.cliPath": {
           "type": "string",
-          "default": "rbx-fileview",
-          "description": "Path to the RBX-Fileview CLI executable. Defaults to RBX-Fileview on PATH, or rbx-fileview.exe in the workspace root."
+          "default": "",
+          "description": "Optional path to the rbx-fileview CLI. Leave blank to use rbx-fileview on PATH."
         },
         "rbx-fileview.maxDepth": {
           "type": [
@@ -177,7 +187,7 @@
           "default": null,
           "description": "Optional max traversal depth for rbx-fileview dump."
         },
-        "rbx-fileview.includeFullProperties": {
+        "rbx-fileview.includeDefaultProperties": {
           "type": "boolean",
           "default": false,
           "description": "Include default-valued properties in dump output."
@@ -187,25 +197,13 @@
           "items": {
             "type": "string"
           },
-          "default": [
-            "Source"
-          ],
-          "description": "Property names omitted from dump output. Source is excluded by default for shorter place dumps."
+          "default": [],
+          "description": "Exclude Properties from dump output."
         },
-        "rbx-fileview.setupGitDiff": {
+        "rbx-fileview.setupGitConfig": {
           "type": "boolean",
           "default": true,
-          "description": "Configure git textconv so Source Control diffs show RBX-Fileview YAML instead of binary."
-        },
-        "rbx-fileview.openByDefault": {
-          "type": "boolean",
-          "default": true,
-          "description": "When a .rbxm file is opened from disk, automatically show the read-only RBX-Fileview YAML text view."
-        },
-        "rbx-fileview.openDiffForChangedFiles": {
-          "type": "boolean",
-          "default": true,
-          "description": "When a changed Roblox file is opened from Source Control, open the RBX-Fileview HEAD vs working tree diff. Explorer opens always show a single-file view."
+          "description": "Configure git for RBX-Fileview."
         }
       }
     }
@@ -215,7 +213,7 @@
     "compile": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\" && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "open-dev-host": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/open-dev-host.ps1",
-    "package-vsix": "pnpm run compile && pnpm exec vsce package --no-dependencies --allow-missing-repository -o rbx-fileview.vsix",
+    "package-vsix": "pnpm run compile && pnpm exec vsce package --no-dependencies -o rbx-fileview.vsix",
     "install-local": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-local.ps1",
     "pretest": "pnpm run compile && pnpm run lint",
     "lint": "eslint src",

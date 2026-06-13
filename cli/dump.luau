@@ -26,7 +26,7 @@ export type DumpResult = {
 
 local Dump = {}
 
-local DEFAULT_EXCLUDED_PROPERTIES = { "Source" }
+local DEFAULT_EXCLUDED_PROPERTIES: { string } = {}
 local DEFAULT_RUN_OPTIONS: DumpRunOptions = {
 	full = false,
 	includeProperties = true,
@@ -104,12 +104,10 @@ local function printHelp()
 	print("")
 	print("Options:")
 	print("  -o, --output <path>     Write output to file (default: stdout)")
-	print("  --full                  Include default-valued properties")
+	print("  --include-default-properties  Include properties at their default values")
 	print("  --max-depth <n>         Limit traversal depth")
-	print("  --properties            Include properties (default)")
 	print("  --no-properties         Instance structure only")
-	print("  --exclude-property <names>  Omit properties (comma-separated, repeatable)")
-	print("  --no-excluded-properties  Dump all properties, including Source")
+	print("  --exclude-property <names>  Exclude properties from output (comma-separated, repeatable)")
 	print("  --stats                 Print instance counts to stderr")
 	print("  -h, --help              Show this help message")
 end
@@ -140,7 +138,7 @@ local function parseArgs(args: { string }): DumpCliOptions
 			if not options.outputPath then
 				error("Missing value for --output")
 			end
-		elseif arg == "--full" then
+		elseif arg == "--include-default-properties" or arg == "--full" then
 			options.full = true
 		elseif arg == "--max-depth" then
 			index += 1
@@ -150,7 +148,7 @@ local function parseArgs(args: { string }): DumpCliOptions
 			end
 			options.maxDepth = depth
 		elseif arg == "--properties" then
-			options.includeProperties = true
+			error("The --properties option was removed. Properties are included by default; use --no-properties to omit them.")
 		elseif arg == "--no-properties" then
 			options.includeProperties = false
 		elseif arg == "--exclude-property" then
@@ -162,11 +160,8 @@ local function parseArgs(args: { string }): DumpCliOptions
 			appendExcludedProperties(options.excludedProperties :: { string }, propertyNames)
 			options.excludedPropertiesExplicit = true
 		elseif arg == "--no-excluded-properties" then
-			options.excludedProperties = {}
-			options.excludedPropertiesExplicit = true
-		elseif arg == "--no-source" then
 			error(
-				"The --no-source option was removed. Use --exclude-property Source (default) or --no-excluded-properties."
+				"The --no-excluded-properties option was removed. All properties are included by default; use --exclude-property to omit specific properties."
 			)
 		elseif arg == "--stats" then
 			options.stats = true
