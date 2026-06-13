@@ -3,7 +3,7 @@
 RBX-Fileview ships two artifacts:
 
 1. **CLI** — standalone `rbx-fileview` binaries (GitHub Releases)
-2. **Extension** — VS Code/Cursor extension with the CLI bundled per platform
+2. **Extension** — VS Code/Cursor extension (requires the CLI on PATH or `rbx-fileview.cliPath`)
 
 ## 1. Release the CLI
 
@@ -36,27 +36,24 @@ Publish the draft release on GitHub when the assets look correct.
 
 ## 2. Publish the extension
 
-After the CLI release exists, push an extension tag:
+Push an extension tag:
 
 ```bash
 git tag ext-v1.0.0
 git push origin ext-v1.0.0
 ```
 
-`ext-v1.0.0` bundles CLI release `v1.0.0` (the `ext-` prefix is stripped).
-
 Or run **Publish Extension** manually with:
 
 - `extension_tag` — e.g. `ext-v1.0.0`
-- `cli_tag` — e.g. `v1.0.0`
-- `publish_marketplace` — enable to upload VSIX files (requires `VSCE_PAT` secret)
+- `publish_marketplace` — enable to upload the VSIX (requires `VSCE_PAT` secret)
 
 The workflow (`.github/workflows/publish-extension.yml`):
 
-- Downloads CLI zips from the GitHub Release
-- Stages them under `Extension/rbx-fileview/bin/<vsce-target>/`
 - Syncs `package.json` version from the extension tag
-- Builds platform-specific VSIX files with `vsce package --target …`
+- Builds a single universal VSIX (no bundled CLI binary)
+
+Users must install `rbx-fileview` separately and keep it on PATH, or set `rbx-fileview.cliPath`.
 
 ### Marketplace secret
 
@@ -68,18 +65,10 @@ Marketplace publish is **opt-in** via the manual workflow `publish_marketplace` 
 
 ## Local extension install
 
-Download VSIX artifacts from the **Publish Extension** workflow run, then:
+Download the VSIX artifact from the **Publish Extension** workflow run, then:
 
 ```bash
-cursor --install-extension rbx-fileview-win32-x64.vsix
+cursor --install-extension rbx-fileview.vsix
 ```
 
-## How the bundled CLI works
-
-On activation the extension:
-
-1. Reads `bin/<platform>/rbx-fileview` from the installed VSIX
-2. Copies it to `globalStorage/bin/`
-3. Uses that path for dumps and git textconv
-
-Override with `rbx-fileview.cliPath`, or use a workspace `rbx-fileview.exe` when developing the repo.
+Install the CLI from the matching GitHub Release, or build it locally and add it to PATH.

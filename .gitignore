@@ -1,6 +1,5 @@
 *.exe
-Extension/rbx-fileview/bin/**/*
-!Extension/rbx-fileview/bin/README.md
+Extension/rbx-fileview/bin/
 Out
 Test/out*.yaml
 *.rbxl.lock

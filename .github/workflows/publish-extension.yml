@@ -9,11 +9,8 @@ on:
       extension_tag:
         description: "Extension tag (e.g. ext-v1.0.0)"
         required: true
-      cli_tag:
-        description: "CLI release tag to bundle (e.g. v1.0.0)"
-        required: true
       publish_marketplace:
-        description: "Publish VSIX files to the VS Marketplace"
+        description: "Publish VSIX to the VS Marketplace"
         type: boolean
         default: false
 
@@ -25,78 +22,30 @@ env:
 
 jobs:
   package:
-    name: Package (${{ matrix.vsce-target }})
+    name: Package VSIX
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - vsce-target: win32-x64
-            cli-artifact: rbx-fileview-windows-x86_64
-            cli-binary: rbx-fileview.exe
-            packaged-binary: rbx-fileview.exe
-
-          - vsce-target: linux-x64
-            cli-artifact: rbx-fileview-linux-x86_64
-            cli-binary: rbx-fileview
-            packaged-binary: rbx-fileview
-
-          - vsce-target: linux-arm64
-            cli-artifact: rbx-fileview-linux-aarch64
-            cli-binary: rbx-fileview
-            packaged-binary: rbx-fileview
-
-          - vsce-target: darwin-x64
-            cli-artifact: rbx-fileview-macos-x86_64
-            cli-binary: rbx-fileview
-            packaged-binary: rbx-fileview
-
-          - vsce-target: darwin-arm64
-            cli-artifact: rbx-fileview-macos-aarch64
-            cli-binary: rbx-fileview
-            packaged-binary: rbx-fileview
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Resolve release tags
+      - name: Resolve release tag
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             EXT_TAG="${{ github.event.inputs.extension_tag }}"
-            CLI_TAG="${{ github.event.inputs.cli_tag }}"
           else
             EXT_TAG="${{ github.ref_name }}"
-            CLI_TAG="${EXT_TAG#ext-}"
           fi
 
           VERSION="${EXT_TAG#ext-v}"
           echo "extension_tag=${EXT_TAG}" >> "$GITHUB_OUTPUT"
-          echo "cli_tag=${CLI_TAG}" >> "$GITHUB_OUTPUT"
           echo "package_version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Sync extension version
         working-directory: ${{ env.EXTENSION_DIR }}
         run: |
           node -e "const fs=require('fs'); const file='package.json'; const pkg=JSON.parse(fs.readFileSync(file,'utf8')); pkg.version='${{ steps.version.outputs.package_version }}'; fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');"
-
-      - name: Download CLI asset
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download "${{ steps.version.outputs.cli_tag }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "${{ matrix.cli-artifact }}.zip" \
-            --dir /tmp/cli-asset
-
-      - name: Stage bundled CLI
-        run: |
-          mkdir -p "${{ env.EXTENSION_DIR }}/bin/${{ matrix.vsce-target }}"
-          unzip -j /tmp/cli-asset/${{ matrix.cli-artifact }}.zip -d /tmp/cli-bin
-          install -m 755 "/tmp/cli-bin/${{ matrix.cli-binary }}" \
-            "${{ env.EXTENSION_DIR }}/bin/${{ matrix.vsce-target }}/${{ matrix.packaged-binary }}"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -120,33 +69,19 @@ jobs:
 
       - name: Package VSIX
         working-directory: ${{ env.EXTENSION_DIR }}
-        run: |
-          pnpm exec vsce package \
-            --no-dependencies \
-            --target ${{ matrix.vsce-target }} \
-            -o "rbx-fileview-${{ matrix.vsce-target }}.vsix"
+        run: pnpm exec vsce package --no-dependencies -o rbx-fileview.vsix
 
       - name: Upload VSIX
         uses: actions/upload-artifact@v4
         with:
-          name: vsix-${{ matrix.vsce-target }}
-          path: ${{ env.EXTENSION_DIR }}/rbx-fileview-${{ matrix.vsce-target }}.vsix
+          name: vsix
+          path: ${{ env.EXTENSION_DIR }}/rbx-fileview.vsix
 
   publish:
     name: Publish to Marketplace
     needs: package
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.publish_marketplace == 'true' }}
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        vsce-target:
-          - win32-x64
-          - linux-x64
-          - linux-arm64
-          - darwin-x64
-          - darwin-arm64
 
     steps:
       - name: Checkout
@@ -155,7 +90,7 @@ jobs:
       - name: Download VSIX
         uses: actions/download-artifact@v4
         with:
-          name: vsix-${{ matrix.vsce-target }}
+          name: vsix
           path: vsix
 
       - name: Setup pnpm
@@ -179,6 +114,5 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
-          pnpm exec vsce publish "$GITHUB_WORKSPACE/vsix/rbx-fileview-${{ matrix.vsce-target }}.vsix" \
-            --pat "$VSCE_PAT" \
-            --target "${{ matrix.vsce-target }}"
+          pnpm exec vsce publish "$GITHUB_WORKSPACE/vsix/rbx-fileview.vsix" \
+            --pat "$VSCE_PAT"

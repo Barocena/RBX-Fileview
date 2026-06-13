@@ -3,43 +3,10 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import * as vscode from 'vscode';
-import { isBundledCliEnabled, resolveBundledCliPath } from './bundledCli';
 
 const execFileAsync = promisify(execFile);
 const CLI_EXECUTABLE = process.platform === 'win32' ? 'rbx-fileview.exe' : 'rbx-fileview';
 const DEFAULT_CLI_ON_PATH = 'rbx-fileview';
-
-let extensionContext: vscode.ExtensionContext | undefined;
-let managedCliPath: string | undefined;
-
-export function setExtensionContext(context: vscode.ExtensionContext): void {
-	extensionContext = context;
-}
-
-export function setManagedCliPath(cliPath: string | undefined): void {
-	managedCliPath = cliPath;
-}
-
-async function resolveManagedCliPath(): Promise<string | undefined> {
-	if (!isBundledCliEnabled()) {
-		return undefined;
-	}
-
-	if (managedCliPath && (await fileExists(managedCliPath))) {
-		return managedCliPath;
-	}
-
-	if (!extensionContext) {
-		return undefined;
-	}
-
-	const resolved = await resolveBundledCliPath(extensionContext);
-	if (resolved) {
-		managedCliPath = resolved;
-	}
-
-	return resolved;
-}
 
 export interface DumpResult {
 	stdout: string;
@@ -53,6 +20,11 @@ export interface DumpOptions {
 	includeProperties?: boolean;
 	excludedProperties?: string[];
 	full?: boolean;
+}
+
+export interface CliAvailability {
+	available: boolean;
+	resolvedPath: string;
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -102,17 +74,16 @@ function usesDefaultCliResolution(configured: string): boolean {
 	return configured === DEFAULT_CLI_ON_PATH || configured === `${DEFAULT_CLI_ON_PATH}.exe`;
 }
 
+function isExplicitCliPath(cliPath: string): boolean {
+	return path.isAbsolute(cliPath) || cliPath.includes(path.sep) || cliPath.includes('/');
+}
+
 export async function resolveCliPath(filePath?: string): Promise<string> {
 	const config = vscode.workspace.getConfiguration('rbx-fileview');
 	const configured = config.get<string>('cliPath', '').trim();
 
 	if (!usesDefaultCliResolution(configured)) {
 		return configured;
-	}
-
-	const bundled = await resolveManagedCliPath();
-	if (bundled) {
-		return bundled;
 	}
 
 	if (filePath) {
@@ -128,6 +99,64 @@ export async function resolveCliPath(filePath?: string): Promise<string> {
 	}
 
 	return CLI_EXECUTABLE;
+}
+
+export async function checkCliAvailability(filePath?: string): Promise<CliAvailability> {
+	const resolvedPath = await resolveCliPath(filePath);
+
+	if (isExplicitCliPath(resolvedPath)) {
+		return {
+			available: await fileExists(resolvedPath),
+			resolvedPath,
+		};
+	}
+
+	try {
+		await execFileAsync(resolvedPath, ['--version'], {
+			encoding: 'utf8',
+			timeout: 5000,
+			windowsHide: true,
+		});
+
+		return {
+			available: true,
+			resolvedPath,
+		};
+	} catch (error) {
+		const execError = error as NodeJS.ErrnoException;
+
+		if (execError.code === 'ENOENT') {
+			return {
+				available: false,
+				resolvedPath,
+			};
+		}
+
+		return {
+			available: true,
+			resolvedPath,
+		};
+	}
+}
+
+export async function notifyIfCliMissing(output: vscode.OutputChannel, filePath?: string): Promise<void> {
+	const { available, resolvedPath } = await checkCliAvailability(filePath);
+
+	if (available) {
+		output.appendLine(`rbx-fileview CLI: ${resolvedPath}`);
+		return;
+	}
+
+	output.appendLine(`rbx-fileview CLI not found (looked for: ${resolvedPath})`);
+
+	const selection = await vscode.window.showWarningMessage(
+		'RBX-Fileview: rbx-fileview CLI not found. Install it on PATH or set rbx-fileview.cliPath in settings.',
+		'Open Settings',
+	);
+
+	if (selection === 'Open Settings') {
+		await vscode.commands.executeCommand('workbench.action.openSettings', 'rbx-fileview.cliPath');
+	}
 }
 
 export function buildDumpArgs(filePath: string, options: DumpOptions = {}): string[] {

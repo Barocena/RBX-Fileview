@@ -25,7 +25,7 @@ try {
 
 	Write-Host ""
 	Write-Host "Done. Reload IDE (Ctrl+Shift+P -> Developer: Reload Window), then open a .rbxm file."
-	Write-Host "Note: bundled CLI is disabled; rbx-fileview must be on PATH or set via rbx-fileview.cliPath."
+	Write-Host "Note: rbx-fileview must be on PATH or set via rbx-fileview.cliPath."
 }
 finally {
 	Pop-Location

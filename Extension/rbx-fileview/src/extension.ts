@@ -7,9 +7,8 @@ import {
 	selectForCompare,
 	setCompareSourceContext,
 } from './compare';
-import { ensureBundledCli, isBundledCliEnabled } from './bundledCli';
 import { setupGitDiffSupport } from './gitDiffSetup';
-import { setExtensionContext, setManagedCliPath } from './fileviewCli';
+import { notifyIfCliMissing } from './fileviewCli';
 import { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
 import { isFileviewUri, isRobloxFile, FILEVIEW_SCHEME } from './fileviewUri';
 import { applyDumpLanguage, openFileviewDocument } from './openRobloxFile';
@@ -30,17 +29,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	try {
 		output.appendLine('RBX-Fileview extension activating...');
 
-		setExtensionContext(context);
-
-		if (isBundledCliEnabled()) {
-			const managedCliPath = await ensureBundledCli(context);
-			setManagedCliPath(managedCliPath);
-			if (managedCliPath) {
-				output.appendLine(`Using bundled CLI: ${managedCliPath}`);
-			}
-		} else {
-			output.appendLine('Using rbx-fileview from PATH (bundled CLI disabled).');
-		}
+		void notifyIfCliMissing(output);
 
 		if (context.extensionMode === vscode.ExtensionMode.Development) {
 			output.show(true);

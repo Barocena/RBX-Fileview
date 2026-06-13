@@ -2,7 +2,6 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { errorMessage } from '../errorMessage';
 import { isRobloxFile, ROBLOX_EXTENSIONS } from '../fileviewUri';
-import { getVsceTarget } from '../bundledCli';
 import { buildDumpArgs, DEFAULT_EXCLUDED_PROPERTIES } from '../fileviewCli';
 
 suite('RBX-Fileview CLI helpers', () => {
@@ -38,15 +37,6 @@ suite('RBX-Fileview CLI helpers', () => {
 
 	test('default excluded properties are empty', () => {
 		assert.deepStrictEqual(DEFAULT_EXCLUDED_PROPERTIES, []);
-	});
-});
-
-suite('Bundled CLI helpers', () => {
-	test('getVsceTarget returns a known platform on CI hosts', () => {
-		const target = getVsceTarget();
-		if (process.platform === 'win32' && process.arch === 'x64') {
-			assert.strictEqual(target, 'win32-x64');
-		}
 	});
 });
 
