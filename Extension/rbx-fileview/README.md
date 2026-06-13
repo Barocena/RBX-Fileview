@@ -1,37 +1,27 @@
-# RBX-Fileview
+<p align="center">
+  <img src="./images/icon.png" width="128" height="128" />
+</p>
 
-View Roblox place and model files (`.rbxl`, `.rbxlx`, `.rbxm`, `.rbxmx`) as a human-readable YAML dump inside VS Code or Cursor.
+<p align="center">
+  <strong>RBX-Fileview</strong>
+</p>
 
-## Requirements
+View Roblox place and model files (`.rbxl`, `.rbxlx`, `.rbxm`, `.rbxmx`) as a human-readable YAML dump in VS Code and Cursor.
 
-This extension requires the separate **rbx-fileview** CLI:
+## CLI Installation
 
-1. Download a release from [GitHub Releases](https://github.com/Barocena/RBX-Fileview/releases)
-2. Add `rbx-fileview` to your PATH, or set **rbx-fileview: Cli Path** in settings
+The extension requires the **rbx-fileview** CLI.
 
-If the CLI is missing, RBX-Fileview shows a warning when the extension starts.
+### [GitHub Releases](https://github.com/Barocena/RBX-Fileview/releases/latest)
 
-## Features
+Pre-built binaries are available on the [releases page](https://github.com/Barocena/RBX-Fileview/releases).
 
-- Open Roblox files as a read-only YAML text view
-- Refresh and copy dump output from the editor
-- Compare two Roblox files side by side
-- Git diffs for changed Roblox files in Source Control (YAML instead of binary)
-- Optional git diff driver setup for local repositories
+### [Rokit](https://github.com/rojo-rbx/rokit)
 
-## Settings
+```bash
+rokit add Barocena/RBX-Fileview
+```
 
-| Setting | Description |
-|---------|-------------|
-| `rbx-fileview.cliPath` | Custom CLI path. Leave blank to use PATH. |
-| `rbx-fileview.includeDefaultProperties` | Include properties at their default values |
-| `rbx-fileview.excludedProperties` | Property names to omit from dump output |
-| `rbx-fileview.setupGitConfig` | Configure git for RBX-Fileview diffs |
+## Usage
 
-## Repository
-
-Source code and CLI builds: [github.com/Barocena/RBX-Fileview](https://github.com/Barocena/RBX-Fileview)
-
-## License
-
-MPL-2.0
+Open a Roblox file to view its YAML dump. Compare files from the explorer or Source Control — changed files show a YAML diff instead of binary.
