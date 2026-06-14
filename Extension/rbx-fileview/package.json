@@ -3,7 +3,7 @@
   "displayName": "RBX-Fileview",
   "description": "Human-readable viewer for Roblox place and model files.",
   "icon": "images/icon.png",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "Barocena",
   "author": "Barocena",
   "license": "MPL-2.0",
