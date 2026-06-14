@@ -1,6 +1,7 @@
 local InstanceOrder = require("./instanceOrder")
 local Properties = require("./properties")
 local StringBuffer = require("./stringBuffer")
+local Values = require("./values")
 
 export type EncodeOptions = {
 	full: boolean,
@@ -247,7 +248,7 @@ local function appendInstanceTree(
 	buf: StringBuffer.StringBuffer,
 	root: Instance,
 	options: EncodeOptions,
-	propertyContext: Properties.PropertyCollectContext,
+	propertyContext: Values.SerializeContext,
 	propertyWriter: Properties.PropertyWriter,
 	stats: EncodeStats,
 	rootAsArrayItem: boolean,
@@ -354,7 +355,17 @@ local function appendInstanceTree(
 	end
 end
 
-function YamlFormat.encodePlace(root: Instance, options: EncodeOptions, capacityHint: number?): EncodeResult
+local function encodeRoots(
+	_roots: { Instance },
+	options: EncodeOptions,
+	capacityHint: number?,
+	appendTree: (
+		buf: StringBuffer.StringBuffer,
+		propertyContext: Values.SerializeContext,
+		propertyWriter: Properties.PropertyWriter,
+		stats: EncodeStats
+	) -> ()
+): EncodeResult
 	local stats: EncodeStats = {
 		instanceCount = 0,
 		maxDepthReached = 0,
@@ -362,15 +373,14 @@ function YamlFormat.encodePlace(root: Instance, options: EncodeOptions, capacity
 	}
 
 	local buf = StringBuffer.new(estimateInitialCapacity(capacityHint, options.includeProperties))
-	local propertyContext: Properties.PropertyCollectContext = {
+	local propertyContext: Values.SerializeContext = {
 		pathCache = {},
-		full = options.full,
 	}
 	local propertyWriter: Properties.PropertyWriter = {
 		appendScalarValue = appendScalarValue,
 	}
 
-	appendInstanceTree(buf, root, options, propertyContext, propertyWriter, stats, false)
+	appendTree(buf, propertyContext, propertyWriter, stats)
 
 	local finishStarted = if stats.profile then os.clock() else 0
 	local output = StringBuffer.finish(buf, true)
@@ -384,51 +394,33 @@ function YamlFormat.encodePlace(root: Instance, options: EncodeOptions, capacity
 	}
 end
 
+function YamlFormat.encodePlace(root: Instance, options: EncodeOptions, capacityHint: number?): EncodeResult
+	return encodeRoots({ root }, options, capacityHint, function(buf, propertyContext, propertyWriter, stats)
+		appendInstanceTree(buf, root, options, propertyContext, propertyWriter, stats, false)
+	end)
+end
+
 function YamlFormat.encodeModel(roots: { Instance }, options: EncodeOptions, capacityHint: number?): EncodeResult
-	local stats: EncodeStats = {
-		instanceCount = 0,
-		maxDepthReached = 0,
-		profile = if options.profile then newProfile() else nil,
-	}
+	return encodeRoots(roots, options, capacityHint, function(buf, propertyContext, propertyWriter, stats)
+		local rootCount = #roots
+		local duplicateMetadata = InstanceOrder.prepareChildren(roots)
+		local useTopLevelArray = rootCount > 1
 
-	local buf = StringBuffer.new(estimateInitialCapacity(capacityHint, options.includeProperties))
-	local propertyContext: Properties.PropertyCollectContext = {
-		pathCache = {},
-		full = options.full,
-	}
-	local propertyWriter: Properties.PropertyWriter = {
-		appendScalarValue = appendScalarValue,
-	}
-
-	local rootCount = #roots
-	local duplicateMetadata = InstanceOrder.prepareChildren(roots)
-	local useTopLevelArray = rootCount > 1
-
-	for index = 1, rootCount do
-		local duplicate = duplicateMetadata[index]
-		appendInstanceTree(
-			buf,
-			roots[index],
-			options,
-			propertyContext,
-			propertyWriter,
-			stats,
-			useTopLevelArray,
-			if duplicate then duplicate.index else nil,
-			if duplicate then duplicate.total else nil
-		)
-	end
-
-	local finishStarted = if stats.profile then os.clock() else 0
-	local output = StringBuffer.finish(buf, true)
-	if stats.profile then
-		stats.profile.finishSeconds = os.clock() - finishStarted
-	end
-
-	return {
-		output = output,
-		stats = stats,
-	}
+		for index = 1, rootCount do
+			local duplicate = duplicateMetadata[index]
+			appendInstanceTree(
+				buf,
+				roots[index],
+				options,
+				propertyContext,
+				propertyWriter,
+				stats,
+				useTopLevelArray,
+				if duplicate then duplicate.index else nil,
+				if duplicate then duplicate.total else nil
+			)
+		end
+	end)
 end
 
 return YamlFormat

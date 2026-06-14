@@ -36,18 +36,6 @@
         "displayName": "RBX-Fileview",
         "selector": [
           {
-            "filenamePattern": "*.rbxl"
-          },
-          {
-            "filenamePattern": "*.rbxlx"
-          },
-          {
-            "filenamePattern": "*.rbxm"
-          },
-          {
-            "filenamePattern": "*.rbxmx"
-          },
-          {
             "filenamePattern": "**/*.rbxl"
           },
           {

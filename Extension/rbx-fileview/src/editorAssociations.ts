@@ -1,8 +1,6 @@
 import * as vscode from 'vscode';
 import { errorMessage } from './errorMessage';
-import { ROBLOX_GLOB_PATTERNS } from './fileviewUri';
-
-const FILEVIEW_VIEW_TYPE = 'rbx-fileview.roblox';
+import { ROBLOX_GLOB_PATTERNS, FILEVIEW_CUSTOM_EDITOR_VIEW_TYPE } from './fileviewUri';
 
 function stripFileviewAssociations(
 	current: Record<string, string>,
@@ -11,7 +9,7 @@ function stripFileviewAssociations(
 	let changed = false;
 
 	for (const pattern of ROBLOX_GLOB_PATTERNS) {
-		if (cleaned[pattern] === FILEVIEW_VIEW_TYPE) {
+		if (cleaned[pattern] === FILEVIEW_CUSTOM_EDITOR_VIEW_TYPE) {
 			delete cleaned[pattern];
 			changed = true;
 		}

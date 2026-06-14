@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
-import { isRobloxFile, normalizeRobloxFileUri } from './fileviewUri';
+import { normalizeRobloxFileUri } from './fileviewUri';
 import { closePlaceholderRobloxTabs } from './robloxTabs';
 import { openFileviewDocument } from './openRobloxFile';
 

@@ -1,11 +1,9 @@
 import * as vscode from 'vscode';
 import type { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
-import { fromFileviewUri, isFileviewUri } from './fileviewUri';
+import { fromFileviewUri, isFileviewUri, FILEVIEW_CUSTOM_EDITOR_VIEW_TYPE } from './fileviewUri';
 import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
 import { findSourceUriForSpillPath, findSpillTabForSource, isSpillDumpUri } from './spillRegistry';
 import { openLargeFileInEditor } from './openRobloxFile';
-
-const FILEVIEW_CUSTOM_VIEW = 'rbx-fileview.roblox';
 
 function isPlaceholderSingleTab(tab: vscode.Tab, key: string): boolean {
 	if (!(tab.input instanceof vscode.TabInputText)) {
@@ -42,7 +40,7 @@ function isPlaceholderCustomTab(tab: vscode.Tab, key: string): boolean {
 		return false;
 	}
 
-	if (tab.input.viewType !== FILEVIEW_CUSTOM_VIEW) {
+	if (tab.input.viewType !== FILEVIEW_CUSTOM_EDITOR_VIEW_TYPE) {
 		return false;
 	}
 

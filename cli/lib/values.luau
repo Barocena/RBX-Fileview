@@ -3,7 +3,6 @@ local Base64 = require("./base64")
 
 export type SerializeContext = {
 	pathCache: { [Instance]: string },
-	full: boolean,
 }
 
 local Values = {}

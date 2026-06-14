@@ -2,13 +2,11 @@ local roblox = require("@lune/roblox")
 local Values = require("./values")
 local StringBuffer = require("./stringBuffer")
 
-export type PropertyCollectContext = Values.SerializeContext
-
 export type PropertyOptions = {
 	full: boolean,
 	includeProperties: boolean,
 	excludedProperties: { [string]: boolean },
-	propertyContext: PropertyCollectContext,
+	propertyContext: Values.SerializeContext,
 }
 
 export type PropertyWriter = {
@@ -176,32 +174,11 @@ local function equalsDefault(value: any, entry: PropertyEntry, full: boolean): b
 		return true
 	end
 
-	local valueType = typeof(value)
-	if valueType == "number" and typeof(defaultValue) == "number" then
-		return math.abs(value - defaultValue) < 1e-6
-	end
-
-	if valueType == "boolean" or valueType == "string" then
-		return false
-	end
-
-	if valueType == "EnumItem" and entry.defaultEnumName then
+	if typeof(value) == "EnumItem" and entry.defaultEnumName then
 		return value.Name == entry.defaultEnumName
 	end
 
-	if valueType == "Vector3" and typeof(defaultValue) == "Vector3" then
-		return value.X == defaultValue.X and value.Y == defaultValue.Y and value.Z == defaultValue.Z
-	end
-
-	if valueType == "Vector2" and typeof(defaultValue) == "Vector2" then
-		return value.X == defaultValue.X and value.Y == defaultValue.Y
-	end
-
-	if valueType == "Color3" and typeof(defaultValue) == "Color3" then
-		return value.R == defaultValue.R and value.G == defaultValue.G and value.B == defaultValue.B
-	end
-
-	if valueType == "CFrame" and entry.defaultCFrameComponents then
+	if typeof(value) == "CFrame" and entry.defaultCFrameComponents then
 		local components = entry.defaultCFrameComponents
 		local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = value:GetComponents()
 		return x == components[1]
@@ -386,9 +363,9 @@ function Properties.appendToBuffer(
 	writer: PropertyWriter,
 	valueIndentLevel: number,
 	profile: PropertyProfile?
-): boolean
+): ()
 	if not options.includeProperties then
-		return false
+		return
 	end
 
 	local wroteHeader = false
@@ -439,8 +416,6 @@ function Properties.appendToBuffer(
 	if wroteHeader then
 		lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
 	end
-
-	return wroteHeader
 end
 
 function Properties.newProfile(): PropertyProfile

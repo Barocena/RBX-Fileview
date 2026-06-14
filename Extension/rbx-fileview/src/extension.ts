@@ -11,7 +11,7 @@ import {
 import { setupGitDiffSupport } from './gitDiffSetup';
 import { notifyIfCliMissing } from './fileviewCli';
 import { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
-import { isFileviewUri, isRobloxFile, FILEVIEW_SCHEME } from './fileviewUri';
+import { isFileviewUri, isRobloxFile, FILEVIEW_SCHEME, FILEVIEW_CUSTOM_EDITOR_VIEW_TYPE } from './fileviewUri';
 import { applyDumpLanguage, openFileviewDocument } from './openRobloxFile';
 import { setupRobloxTabRouter } from './robloxTabRouter';
 import { RobloxCustomEditorProvider } from './robloxCustomEditorProvider';
@@ -35,7 +35,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 		if (context.extensionMode === vscode.ExtensionMode.Development) {
 			output.show(true);
-			void vscode.window.showInformationMessage('RBX-Fileview extension loaded (development mode)');
 		}
 
 		const textProvider = new FileviewTextDocumentProvider();
@@ -58,7 +57,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		context.subscriptions.push(
 			output,
 			textProvider,
-			vscode.window.registerCustomEditorProvider('rbx-fileview.roblox', customEditorProvider, {
+			vscode.window.registerCustomEditorProvider(FILEVIEW_CUSTOM_EDITOR_VIEW_TYPE, customEditorProvider, {
 				supportsMultipleEditorsPerDocument: true,
 			}),
 			vscode.workspace.registerTextDocumentContentProvider(FILEVIEW_SCHEME, textProvider),

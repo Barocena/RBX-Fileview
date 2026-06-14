@@ -2,6 +2,7 @@ local fs = require("@lune/fs")
 local process = require("@lune/process")
 local stdio = require("@lune/stdio")
 local Load = require("@self/lib/load")
+local Util = require("@self/util")
 local YamlFormat = require("@self/lib/yaml")
 
 export type DumpRunOptions = {
@@ -16,7 +17,6 @@ export type DumpCliOptions = DumpRunOptions & {
 	filePath: string?,
 	outputPath: string?,
 	stats: boolean,
-	excludedPropertiesExplicit: boolean?,
 }
 
 export type DumpResult = {
@@ -26,11 +26,10 @@ export type DumpResult = {
 
 local Dump = {}
 
-local DEFAULT_EXCLUDED_PROPERTIES: { string } = {}
 local DEFAULT_RUN_OPTIONS: DumpRunOptions = {
 	full = false,
 	includeProperties = true,
-	excludedProperties = DEFAULT_EXCLUDED_PROPERTIES,
+	excludedProperties = {},
 	maxDepth = nil,
 }
 
@@ -44,21 +43,12 @@ local function buildExcludedPropertySet(names: { string }): { [string]: boolean 
 	return set
 end
 
-local function appendExcludedProperties(target: { string }, value: string)
-	for name in string.gmatch(value, "[^,]+") do
-		local trimmed = (name:match("^%s*(.-)%s*$")) :: string
-		if trimmed ~= "" then
-			table.insert(target, trimmed)
-		end
-	end
-end
-
 local function resolveExcludedProperties(options: DumpRunOptions?): { string }
 	if options and options.excludedProperties ~= nil then
 		return options.excludedProperties
 	end
 
-	return DEFAULT_EXCLUDED_PROPERTIES
+	return {}
 end
 
 local function resolveRunOptions(options: DumpRunOptions?): DumpRunOptions
@@ -157,7 +147,6 @@ local function parseArgs(args: { string }): DumpCliOptions
 		maxDepth = nil,
 		stats = false,
 		profile = false,
-		excludedPropertiesExplicit = false,
 	}
 
 	local index = 1
@@ -193,8 +182,7 @@ local function parseArgs(args: { string }): DumpCliOptions
 			if not propertyNames or propertyNames == "" then
 				error("Missing value for --exclude-property")
 			end
-			appendExcludedProperties(options.excludedProperties :: { string }, propertyNames)
-			options.excludedPropertiesExplicit = true
+			Util.appendExcludedProperties(options.excludedProperties :: { string }, propertyNames)
 		elseif arg == "--no-excluded-properties" then
 			error(
 				"The --no-excluded-properties option was removed. All properties are included by default; use --exclude-property to omit specific properties."
@@ -219,10 +207,6 @@ local function parseArgs(args: { string }): DumpCliOptions
 
 	if not options.filePath then
 		error("Missing required file path")
-	end
-
-	if not options.excludedPropertiesExplicit then
-		options.excludedProperties = table.clone(DEFAULT_EXCLUDED_PROPERTIES)
 	end
 
 	return options

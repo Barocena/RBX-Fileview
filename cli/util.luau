@@ -12,4 +12,13 @@ function Util.Log(...)
 	print(..., stdio.color("reset"))
 end
 
+function Util.appendExcludedProperties(target: { string }, value: string)
+	for name in string.gmatch(value, "[^,]+") do
+		local trimmed = (name:match("^%s*(.-)%s*$")) :: string
+		if trimmed ~= "" then
+			table.insert(target, trimmed)
+		end
+	end
+end
+
 return Util

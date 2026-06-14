@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 export const FILEVIEW_SCHEME = 'rbx-fileview';
+export const FILEVIEW_CUSTOM_EDITOR_VIEW_TYPE = 'rbx-fileview.roblox';
 
 export const ROBLOX_EXTENSIONS = new Set(['.rbxl', '.rbxlx', '.rbxm', '.rbxmx']);
 

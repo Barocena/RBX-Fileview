@@ -38,7 +38,6 @@ suite('RBX-Fileview CLI helpers', () => {
 	test('buildDumpArgs omits exclusion flags when the list is empty', () => {
 		const args = buildDumpArgs('Test/sample.rbxm', { excludedProperties: [] });
 
-		assert.ok(!args.includes('--no-excluded-properties'));
 		assert.ok(!args.includes('--exclude-property'));
 	});
 

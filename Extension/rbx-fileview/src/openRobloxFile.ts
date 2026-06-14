@@ -21,7 +21,7 @@ export async function openLargeFileInEditor(
 	});
 }
 
-export async function applyYamlLanguage(document: vscode.TextDocument): Promise<void> {
+async function applyYamlLanguage(document: vscode.TextDocument): Promise<void> {
 	if (document.languageId !== 'yaml') {
 		await vscode.languages.setTextDocumentLanguage(document, 'yaml');
 	}

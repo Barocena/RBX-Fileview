@@ -3,6 +3,7 @@ local process = require("@lune/process")
 local stdio = require("@lune/stdio")
 
 local Dump = require("@self/dump")
+local Util = require("@self/util")
 
 export type BenchmarkOptions = {
 	testDir: string,
@@ -35,15 +36,6 @@ local function printHelp()
 	print("  --exclude-property <names>  Exclude properties (comma-separated, repeatable)")
 	print("  --profile          Print load/encode timings to stderr")
 	print("  -h, --help         Show this help message")
-end
-
-local function appendExcludedProperties(target: { string }, value: string)
-	for name in string.gmatch(value, "[^,]+") do
-		local trimmed = (name:match("^%s*(.-)%s*$")) :: string
-		if trimmed ~= "" then
-			table.insert(target, trimmed)
-		end
-	end
 end
 
 local function parseArgs(args: { string }): BenchmarkOptions
@@ -87,7 +79,7 @@ local function parseArgs(args: { string }): BenchmarkOptions
 			if not propertyNames or propertyNames == "" then
 				error("Missing value for --exclude-property")
 			end
-			appendExcludedProperties(options.excludedProperties, propertyNames)
+			Util.appendExcludedProperties(options.excludedProperties, propertyNames)
 		elseif arg == "--profile" then
 			options.profile = true
 		elseif arg:sub(1, 1) == "-" then

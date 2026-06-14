@@ -23,7 +23,7 @@ import {
 	spillPathForSource,
 } from './spillRegistry';
 
-export type WarmDumpResult = {
+type WarmDumpResult = {
 	content: string;
 	spillPath?: string;
 	byteLength: number;
@@ -62,6 +62,28 @@ export class FileviewTextDocumentProvider implements vscode.TextDocumentContentP
 		}
 	}
 
+	private async buildCacheKey(sourceUri: vscode.Uri, ref: GitRef): Promise<string> {
+		const mtimeMs = await this.resolveMtime(sourceUri.fsPath, ref);
+		return buildDumpCacheKey(sourceUri.fsPath, ref, mtimeMs);
+	}
+
+	private fireRefreshForOpenDocuments(sourceUri: vscode.Uri): void {
+		const key = sourceUri.fsPath;
+		this.invalidateCacheForFile(key);
+
+		for (const document of vscode.workspace.textDocuments) {
+			if (document.uri.scheme !== FILEVIEW_SCHEME) {
+				continue;
+			}
+
+			if (fromFileviewUri(document.uri).fsPath === key) {
+				this.changeEmitter.fire(document.uri);
+			}
+		}
+
+		this.changeEmitter.fire(toFileviewUri(sourceUri));
+	}
+
 	private storeDumpResult(
 		cacheKey: string,
 		sourceUri: vscode.Uri,
@@ -91,8 +113,7 @@ export class FileviewTextDocumentProvider implements vscode.TextDocumentContentP
 
 	async warmCache(sourceUri: vscode.Uri, ref: GitRef = 'WORKTREE'): Promise<WarmDumpResult> {
 		const filePath = sourceUri.fsPath;
-		const mtimeMs = await this.resolveMtime(filePath, ref);
-		const cacheKey = buildDumpCacheKey(filePath, ref, mtimeMs);
+		const cacheKey = await this.buildCacheKey(sourceUri, ref);
 
 		const cached = this.contentCache.get(cacheKey);
 		if (cached !== undefined) {
@@ -133,10 +154,7 @@ export class FileviewTextDocumentProvider implements vscode.TextDocumentContentP
 		const sourceUri = fromFileviewUri(uri);
 		const ref = getFileviewGitRef(uri);
 		const filePath = sourceUri.fsPath;
-		const mtimeMs = await this.resolveMtime(filePath, ref);
-		const cacheKey = buildDumpCacheKey(filePath, ref, mtimeMs);
-
-		this.output?.appendLine(`provideTextDocumentContent: ${uri.toString()} (ref=${ref})`);
+		const cacheKey = await this.buildCacheKey(sourceUri, ref);
 
 		const cached = this.contentCache.get(cacheKey);
 		if (cached !== undefined) {
@@ -158,7 +176,6 @@ export class FileviewTextDocumentProvider implements vscode.TextDocumentContentP
 			}
 
 			this.contentCache.set(cacheKey, result.stdout);
-			this.output?.appendLine(`Dump ok: ${filePath} (${result.byteLength} bytes)`);
 			return result.stdout;
 		} catch (error) {
 			this.output?.appendLine(`Dump failed: ${errorMessage(error)}`);
@@ -166,7 +183,7 @@ export class FileviewTextDocumentProvider implements vscode.TextDocumentContentP
 		}
 	}
 
-	invalidateAll(): void {
+	private invalidateAll(): void {
 		this.contentCache.clear();
 	}
 
@@ -198,7 +215,7 @@ export class FileviewTextDocumentProvider implements vscode.TextDocumentContentP
 		}
 	}
 
-	async refreshSpillDocument(sourceUri: vscode.Uri): Promise<void> {
+	private async refreshSpillDocument(sourceUri: vscode.Uri): Promise<void> {
 		this.invalidateCacheForFile(sourceUri.fsPath);
 		await invalidateSpillForSource(sourceUri);
 		const warmed = await this.warmCache(sourceUri, 'WORKTREE');
@@ -242,37 +259,12 @@ export class FileviewTextDocumentProvider implements vscode.TextDocumentContentP
 		if (getFileviewGitRef(toFileviewUri(sourceUri)) === 'WORKTREE') {
 			this.ensureWatcher(sourceUri);
 		}
-		this.invalidateCacheForFile(sourceUri.fsPath);
-
-		for (const document of vscode.workspace.textDocuments) {
-			if (document.uri.scheme !== FILEVIEW_SCHEME) {
-				continue;
-			}
-
-			if (fromFileviewUri(document.uri).fsPath === sourceUri.fsPath) {
-				this.changeEmitter.fire(document.uri);
-			}
-		}
-
-		this.changeEmitter.fire(toFileviewUri(sourceUri));
+		this.fireRefreshForOpenDocuments(sourceUri);
 	}
 
 	private fireRefreshForSourceFile(sourceUri: vscode.Uri): void {
-		const key = sourceUri.fsPath;
-		this.invalidateCacheForFile(key);
-
-		for (const document of vscode.workspace.textDocuments) {
-			if (document.uri.scheme !== FILEVIEW_SCHEME) {
-				continue;
-			}
-
-			if (fromFileviewUri(document.uri).fsPath === key) {
-				this.changeEmitter.fire(document.uri);
-			}
-		}
-
+		this.fireRefreshForOpenDocuments(sourceUri);
 		void this.refreshSpillDocument(sourceUri);
-		this.changeEmitter.fire(toFileviewUri(sourceUri));
 	}
 
 	private ensureWatcher(sourceUri: vscode.Uri): void {

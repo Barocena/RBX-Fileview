@@ -1,18 +1,14 @@
 local fs = require("@lune/fs")
 local roblox = require("@lune/roblox")
 
-export type FileFormat = "binary" | "xml"
-
 export type LoadedPlace = {
 	kind: "place",
-	path: string,
 	contentLength: number,
 	root: roblox.DataModel,
 }
 
 export type LoadedModel = {
 	kind: "model",
-	path: string,
 	contentLength: number,
 	roots: { Instance },
 }
@@ -31,19 +27,19 @@ local MODEL_EXTENSIONS = {
 	rbxmx = true,
 }
 
-function Load.detectFormat(contents: string): FileFormat
+local function validateFormat(contents: string)
 	if contents:sub(1, 8) == "<roblox!" then
-		return "binary"
+		return
 	end
 
 	if contents:sub(1, 7) == "<roblox" then
-		return "xml"
+		return
 	end
 
 	error("Unrecognized Roblox file format (expected <roblox signature)")
 end
 
-function Load.getExtension(filePath: string): string
+local function getExtension(filePath: string): string
 	local extension = filePath:match("%.([^.\\/]+)$")
 	if not extension then
 		error(`File has no extension: {filePath}`)
@@ -57,15 +53,14 @@ function Load.loadFile(filePath: string): LoadedFile
 		error(`File not found: {filePath}`)
 	end
 
-	local extension = Load.getExtension(filePath)
+	local extension = getExtension(filePath)
 	local contents = fs.readFile(filePath)
-	Load.detectFormat(contents)
+	validateFormat(contents)
 
 	if PLACE_EXTENSIONS[extension] then
 		local root = roblox.deserializePlace(contents)
 		return {
 			kind = "place",
-			path = filePath,
 			contentLength = #contents,
 			root = root,
 		}
@@ -75,7 +70,6 @@ function Load.loadFile(filePath: string): LoadedFile
 		local roots = roblox.deserializeModel(contents)
 		return {
 			kind = "model",
-			path = filePath,
 			contentLength = #contents,
 			roots = roots,
 		}

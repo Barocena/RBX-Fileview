@@ -39,8 +39,6 @@ async function openRobloxDiff(
 	rightFile: vscode.Uri,
 	output?: vscode.OutputChannel,
 ): Promise<void> {
-	output?.appendLine(`Opening diff: ${leftFile.fsPath} | ${rightFile.fsPath}`);
-
 	try {
 		await openDumpDiff({
 			title: diffTitle(leftFile, rightFile),
