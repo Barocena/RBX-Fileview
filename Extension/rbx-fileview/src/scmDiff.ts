@@ -1,7 +1,8 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { beginDiffOperation, endDiffOperation } from './diffGuard';
+import { openDumpDiff } from './dumpDiffOpen';
 import { errorMessage } from './errorMessage';
+import { dumpRobloxFileAtRef } from './gitRefDump';
 import { isRobloxFile, normalizeRobloxFileUri, toFileviewUri } from './fileviewUri';
 
 function toFileviewGitUri(fileUri: vscode.Uri, ref: 'HEAD' | 'WORKTREE'): vscode.Uri {
@@ -23,23 +24,38 @@ export async function openGitChanges(
 		return;
 	}
 
-	const left = toFileviewGitUri(target, 'HEAD');
-	const right = toFileviewGitUri(target, 'WORKTREE');
 	const title = `${path.basename(target.fsPath)} (HEAD ↔ Working Tree)`;
 
-	output?.appendLine(`Opening git diff: ${left.toString()} | ${right.toString()}`);
+	output?.appendLine(`Opening git diff for ${target.fsPath}`);
 
-	beginDiffOperation();
 	try {
-		await vscode.commands.executeCommand('vscode.diff', left, right, title, {
-			preview: false,
+		await openDumpDiff({
+			title,
+			progressTitle: `RBX-Fileview: dumping ${path.basename(target.fsPath)} for diff`,
+			progressFiles: [target],
+			dump: async () =>
+				Promise.all([
+					dumpRobloxFileAtRef(target.fsPath, 'HEAD'),
+					dumpRobloxFileAtRef(target.fsPath, 'WORKTREE'),
+				]),
+			left: {
+				fileUri: target,
+				suffix: 'head',
+				query: new URLSearchParams({ ref: 'HEAD' }),
+				virtualUri: toFileviewGitUri(target, 'HEAD'),
+			},
+			right: {
+				fileUri: target,
+				suffix: 'worktree',
+				query: new URLSearchParams({ ref: 'WORKTREE' }),
+				virtualUri: toFileviewGitUri(target, 'WORKTREE'),
+			},
 			viewColumn: options?.viewColumn,
+			output,
 		});
 	} catch (error) {
 		output?.appendLine(`Git diff failed: ${errorMessage(error)}`);
 		void vscode.window.showErrorMessage(`rbx-fileview git diff failed: ${errorMessage(error)}`);
 		throw error;
-	} finally {
-		endDiffOperation();
 	}
 }

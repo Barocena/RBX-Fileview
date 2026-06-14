@@ -2,14 +2,14 @@ local fs = require("@lune/fs")
 local process = require("@lune/process")
 local stdio = require("@lune/stdio")
 local Load = require("@self/lib/load")
-local Tree = require("@self/lib/tree")
-local YamlFormat = require("@self/lib/format/yaml")
+local YamlFormat = require("@self/lib/yaml")
 
 export type DumpRunOptions = {
 	full: boolean?,
 	includeProperties: boolean?,
 	excludedProperties: { string }?,
 	maxDepth: number?,
+	profile: boolean?,
 }
 
 export type DumpCliOptions = DumpRunOptions & {
@@ -21,7 +21,7 @@ export type DumpCliOptions = DumpRunOptions & {
 
 export type DumpResult = {
 	output: string,
-	stats: Tree.TreeStats,
+	stats: YamlFormat.EncodeStats,
 }
 
 local Dump = {}
@@ -63,39 +63,70 @@ end
 
 local function resolveRunOptions(options: DumpRunOptions?): DumpRunOptions
 	return {
-		full = options and options.full ~= nil and options.full or DEFAULT_RUN_OPTIONS.full,
-
-		includeProperties = options and options.includeProperties ~= nil and options.includeProperties
-			or DEFAULT_RUN_OPTIONS.includeProperties,
-
+		full = if options and options.full ~= nil then options.full else DEFAULT_RUN_OPTIONS.full,
+		includeProperties = if options and options.includeProperties ~= nil
+			then options.includeProperties
+			else DEFAULT_RUN_OPTIONS.includeProperties,
 		excludedProperties = resolveExcludedProperties(options),
 		maxDepth = if options then options.maxDepth else DEFAULT_RUN_OPTIONS.maxDepth,
+		profile = options and options.profile == true or false,
 	}
 end
 
 function Dump.dumpFile(filePath: string, options: DumpRunOptions?): DumpResult
 	local runOptions = resolveRunOptions(options)
 
+	local loadStarted = os.clock()
 	local loaded = Load.loadFile(filePath)
+	local loadElapsed = os.clock() - loadStarted
 
-	local treeOptions: Tree.TreeOptions = {
+	local encodeOptions: YamlFormat.EncodeOptions = {
 		full = runOptions.full :: boolean,
 		includeProperties = runOptions.includeProperties :: boolean,
 		excludedProperties = buildExcludedPropertySet(runOptions.excludedProperties :: { string }),
 		maxDepth = runOptions.maxDepth,
+		profile = runOptions.profile,
 	}
 
-	local treeResult
+	local encodeStarted = os.clock()
+	local encoded
 
 	if loaded.kind == "place" then
-		treeResult = Tree.buildPlace(loaded.root, treeOptions)
+		encoded = YamlFormat.encodePlace(loaded.root, encodeOptions, loaded.contentLength)
 	else
-		treeResult = Tree.buildModel(loaded.roots, treeOptions)
+		encoded = YamlFormat.encodeModel(loaded.roots, encodeOptions, loaded.contentLength)
+	end
+
+	local encodeElapsed = os.clock() - encodeStarted
+
+	if runOptions.profile then
+		stdio.ewrite(
+			`Profile: load {string.format("%.2f", loadElapsed * 1000)} ms, encode {string.format("%.2f", encodeElapsed * 1000)} ms\n`
+		)
+		local encodeProfile = encoded.stats.profile
+		if encodeProfile then
+			local props = encodeProfile.properties
+			stdio.ewrite(
+				`  properties: read {string.format("%.2f", props.readsSeconds * 1000)} ms, compare {string.format(
+					"%.2f",
+					props.compareSeconds * 1000
+				)} ms, write {string.format("%.2f", props.writeSeconds * 1000)} ms\n`
+			)
+			stdio.ewrite(
+				`  tree: getChildren {string.format("%.2f", encodeProfile.getChildrenSeconds * 1000)} ms, prepareChildren {string.format(
+					"%.2f",
+					encodeProfile.prepareChildrenSeconds * 1000
+				)} ms, structure {string.format("%.2f", encodeProfile.structureWriteSeconds * 1000)} ms, finish {string.format(
+					"%.2f",
+					encodeProfile.finishSeconds * 1000
+				)} ms\n`
+			)
+		end
 	end
 
 	return {
-		output = YamlFormat.encode(treeResult),
-		stats = treeResult.stats,
+		output = encoded.output,
+		stats = encoded.stats,
 	}
 end
 
@@ -109,6 +140,7 @@ local function printHelp()
 	print("  --no-properties         Instance structure only")
 	print("  --exclude-property <names>  Exclude properties from output (comma-separated, repeatable)")
 	print("  --stats                 Print instance counts to stderr")
+	print("  --profile               Print load/encode timings to stderr")
 	print("  -h, --help              Show this help message")
 end
 
@@ -121,6 +153,7 @@ local function parseArgs(args: { string }): DumpCliOptions
 		excludedProperties = {},
 		maxDepth = nil,
 		stats = false,
+		profile = false,
 		excludedPropertiesExplicit = false,
 	}
 
@@ -165,6 +198,8 @@ local function parseArgs(args: { string }): DumpCliOptions
 			)
 		elseif arg == "--stats" then
 			options.stats = true
+		elseif arg == "--profile" then
+			options.profile = true
 		elseif arg == "--format" then
 			error("The --format option was removed. rbx-fileview dump output is YAML only.")
 		elseif arg:sub(1, 1) == "-" then

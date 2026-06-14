@@ -1,7 +1,7 @@
 local serde = require("@lune/serde")
 
 export type SerializeContext = {
-	pathMap: { [Instance]: string },
+	pathCache: { [Instance]: string },
 	full: boolean,
 }
 
@@ -13,25 +13,7 @@ local function isInstance(value: any): boolean
 	return typeof(value) == "Instance"
 end
 
-local function formatInstancePath(path: string): string
-	if path == "/" then
-		return ""
-	end
-
-	if path:sub(1, 1) == "/" then
-		return path:sub(2)
-	end
-
-	return path
-end
-
-local function resolveInstancePath(value: Instance, context: SerializeContext): string
-	local path = context.pathMap[value]
-	if path then
-		return formatInstancePath(path)
-	end
-
-	local fullName = value:GetFullName()
+local function formatInstancePath(fullName: string): string
 	if fullName == "" or fullName == "Game" then
 		return ""
 	end
@@ -41,6 +23,17 @@ local function resolveInstancePath(value: Instance, context: SerializeContext): 
 	end
 
 	return fullName:gsub("%.", "/")
+end
+
+local function resolveInstancePath(value: Instance, context: SerializeContext): string
+	local cached = context.pathCache[value]
+	if cached ~= nil then
+		return cached
+	end
+
+	local formatted = formatInstancePath(value:GetFullName())
+	context.pathCache[value] = formatted
+	return formatted
 end
 
 function Values.equals(a: any, b: any): boolean

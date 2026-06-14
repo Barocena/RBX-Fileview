@@ -5,15 +5,15 @@ export type FileFormat = "binary" | "xml"
 
 export type LoadedPlace = {
 	kind: "place",
-	format: FileFormat,
 	path: string,
+	contentLength: number,
 	root: roblox.DataModel,
 }
 
 export type LoadedModel = {
 	kind: "model",
-	format: FileFormat,
 	path: string,
+	contentLength: number,
 	roots: { Instance },
 }
 
@@ -59,14 +59,14 @@ function Load.loadFile(filePath: string): LoadedFile
 
 	local extension = Load.getExtension(filePath)
 	local contents = fs.readFile(filePath)
-	local format = Load.detectFormat(contents)
+	Load.detectFormat(contents)
 
 	if PLACE_EXTENSIONS[extension] then
 		local root = roblox.deserializePlace(contents)
 		return {
 			kind = "place",
-			format = format,
 			path = filePath,
+			contentLength = #contents,
 			root = root,
 		}
 	end
@@ -75,8 +75,8 @@ function Load.loadFile(filePath: string): LoadedFile
 		local roots = roblox.deserializeModel(contents)
 		return {
 			kind = "model",
-			format = format,
 			path = filePath,
+			contentLength = #contents,
 			roots = roots,
 		}
 	end

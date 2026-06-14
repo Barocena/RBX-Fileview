@@ -139,7 +139,9 @@ export async function routeRobloxFileOpen(
 
 		void schedulePlaceholderSweep(normalized, intent);
 	} catch (error) {
-		output.appendLine(`Roblox open routing failed: ${errorMessage(error)}`);
+		const message = errorMessage(error);
+		output.appendLine(`Roblox open routing failed: ${message}`);
+		void vscode.window.showErrorMessage(`RBX-Fileview failed to open Roblox file: ${message}`);
 	} finally {
 		setTimeout(() => {
 			handledFiles.delete(key);

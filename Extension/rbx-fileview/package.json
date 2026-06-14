@@ -192,6 +192,11 @@
           "default": false,
           "description": "Include default-valued properties in dump output."
         },
+        "rbx-fileview.includeProperties": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include instance properties in dump output. Disable for faster structure-only views on large places."
+        },
         "rbx-fileview.excludedProperties": {
           "type": "array",
           "items": {

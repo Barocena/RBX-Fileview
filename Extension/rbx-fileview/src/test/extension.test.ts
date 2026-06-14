@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { errorMessage } from '../errorMessage';
 import { isRobloxFile, ROBLOX_EXTENSIONS } from '../fileviewUri';
 import { buildDumpArgs, DEFAULT_EXCLUDED_PROPERTIES } from '../fileviewCli';
+import { isLargeDump, VSCODE_VIRTUAL_DOC_LIMIT_BYTES } from '../dumpLimits';
 
 suite('RBX-Fileview CLI helpers', () => {
 	test('buildDumpArgs includes dump target without stats', () => {
@@ -28,6 +29,12 @@ suite('RBX-Fileview CLI helpers', () => {
 		assert.ok(!args.includes('--full'));
 	});
 
+	test('buildDumpArgs passes --no-properties when includeProperties is disabled', () => {
+		const args = buildDumpArgs('Test/sample.rbxm', { includeProperties: false });
+
+		assert.ok(args.includes('--no-properties'));
+	});
+
 	test('buildDumpArgs omits exclusion flags when the list is empty', () => {
 		const args = buildDumpArgs('Test/sample.rbxm', { excludedProperties: [] });
 
@@ -37,6 +44,11 @@ suite('RBX-Fileview CLI helpers', () => {
 
 	test('default excluded properties are empty', () => {
 		assert.deepStrictEqual(DEFAULT_EXCLUDED_PROPERTIES, []);
+	});
+
+	test('isLargeDump treats dumps above 45MB as large', () => {
+		assert.strictEqual(isLargeDump(VSCODE_VIRTUAL_DOC_LIMIT_BYTES), false);
+		assert.strictEqual(isLargeDump(VSCODE_VIRTUAL_DOC_LIMIT_BYTES + 1), true);
 	});
 });
 

@@ -44,12 +44,24 @@ function StringBuffer.append(state: StringBuffer, text: string): ()
 	state.pos += length
 end
 
-function StringBuffer.finish(state: StringBuffer): string
+function StringBuffer.finish(state: StringBuffer, trimTrailingNewline: boolean?): string
 	if state.pos == 0 then
 		return ""
 	end
 
-	return buffer.readstring(state.buf, 0, state.pos)
+	local length = state.pos
+	if trimTrailingNewline and length > 0 then
+		local last = buffer.readu8(state.buf, length - 1)
+		if last == 10 then
+			length -= 1
+		end
+	end
+
+	if length == 0 then
+		return ""
+	end
+
+	return buffer.readstring(state.buf, 0, length)
 end
 
 return StringBuffer

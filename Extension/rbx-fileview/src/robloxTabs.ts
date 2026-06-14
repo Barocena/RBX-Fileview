@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import type { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
 import { fromFileviewUri, isFileviewUri } from './fileviewUri';
 import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
+import { findSourceUriForSpillPath, findSpillTabForSource, isSpillDumpUri } from './spillRegistry';
+import { openLargeFileInEditor } from './openRobloxFile';
 
 const FILEVIEW_CUSTOM_VIEW = 'rbx-fileview.roblox';
 
@@ -83,6 +85,11 @@ function collectPlaceholderTabs(
 }
 
 export function findFileviewSingleTab(fileUri: vscode.Uri): vscode.Tab | undefined {
+	const spillTab = findSpillTabForSource(fileUri);
+	if (spillTab) {
+		return spillTab;
+	}
+
 	const key = robloxFileKey(fileUri);
 
 	for (const group of vscode.window.tabGroups.all) {
@@ -134,6 +141,20 @@ export async function focusTab(
 	textProvider?: FileviewTextDocumentProvider,
 ): Promise<void> {
 	if (tab.input instanceof vscode.TabInputText) {
+		if (isSpillDumpUri(tab.input.uri)) {
+			const source = findSourceUriForSpillPath(tab.input.uri.fsPath);
+			if (source) {
+				await textProvider?.warmCache(source, 'WORKTREE');
+				await vscode.commands.executeCommand('workbench.action.files.revert', tab.input.uri);
+			}
+
+			await openLargeFileInEditor(tab.input.uri, {
+				viewColumn: tab.group.viewColumn,
+				preview: false,
+			});
+			return;
+		}
+
 		if (isFileviewUri(tab.input.uri)) {
 			textProvider?.prepareOpen(fromFileviewUri(tab.input.uri));
 		}
@@ -147,8 +168,7 @@ export async function focusTab(
 	}
 
 	if (tab.input instanceof vscode.TabInputTextDiff) {
-		const document = await vscode.workspace.openTextDocument(tab.input.modified);
-		await vscode.window.showTextDocument(document, {
+		await vscode.commands.executeCommand('vscode.diff', tab.input.original, tab.input.modified, tab.label, {
 			viewColumn: tab.group.viewColumn,
 			preview: false,
 		});

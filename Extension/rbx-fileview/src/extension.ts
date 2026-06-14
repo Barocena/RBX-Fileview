@@ -1,3 +1,4 @@
+import * as fs from 'node:fs/promises';
 import * as vscode from 'vscode';
 import { errorMessage } from './errorMessage';
 import {
@@ -16,10 +17,11 @@ import { setupRobloxTabRouter } from './robloxTabRouter';
 import { RobloxCustomEditorProvider } from './robloxCustomEditorProvider';
 import { openGitChanges } from './scmDiff';
 import { revealFileviewSourceInExplorer } from './revealSourceInExplorer';
+import { disposeSpillDirectory, isSpillDumpUri, scheduleSpillCleanup, sweepOldSpillFiles } from './spillRegistry';
 
 function updateActiveDumpContext(): void {
 	const active = vscode.window.activeTextEditor?.document.uri;
-	const isActive = active !== undefined && isFileviewUri(active);
+	const isActive = active !== undefined && (isFileviewUri(active) || isSpillDumpUri(active));
 	void vscode.commands.executeCommand('setContext', 'rbx-fileview.dumpActive', isActive);
 }
 
@@ -47,6 +49,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 		setCompareSourceContext(false);
 
+		void sweepOldSpillFiles().then((removed) => {
+			if (removed > 0) {
+				output.appendLine(`Removed ${removed} stale spill dump(s) from temp.`);
+			}
+		});
+
 		context.subscriptions.push(
 			output,
 			textProvider,
@@ -61,19 +69,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				updateActiveDumpContext();
 				void revealFileviewSourceInExplorer(editor?.document.uri);
 			}),
-			vscode.workspace.onDidCloseTextDocument(() => {
+			vscode.workspace.onDidCloseTextDocument((document) => {
+				if (isSpillDumpUri(document.uri)) {
+					scheduleSpillCleanup(document.uri.fsPath);
+				}
 				updateActiveDumpContext();
+			}),
+			vscode.workspace.onDidChangeConfiguration((event) => {
+				if (event.affectsConfiguration('rbx-fileview')) {
+					void textProvider.invalidateSettings();
+				}
 			}),
 			setupRobloxTabRouter(output, textProvider),
 			vscode.commands.registerCommand('rbx-fileview.refresh', refreshActiveDump),
 			vscode.commands.registerCommand('rbx-fileview.copyDump', async () => {
 				const document = vscode.window.activeTextEditor?.document;
-				if (!document || !isFileviewUri(document.uri)) {
+				if (!document || (!isFileviewUri(document.uri) && !isSpillDumpUri(document.uri))) {
 					void vscode.window.showWarningMessage('No rbx-fileview dump is open to copy.');
 					return;
 				}
 
-				await vscode.env.clipboard.writeText(document.getText());
+				if (isSpillDumpUri(document.uri)) {
+					const text = await fs.readFile(document.uri.fsPath, 'utf8');
+					await vscode.env.clipboard.writeText(text);
+				} else {
+					await vscode.env.clipboard.writeText(document.getText());
+				}
 				void vscode.window.showInformationMessage('RBX-Fileview dump copied to clipboard.');
 			}),
 			vscode.commands.registerCommand('rbx-fileview.openWith', async (uri?: vscode.Uri) => {
@@ -114,4 +135,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	}
 }
 
-export function deactivate() {}
+export function deactivate() {
+	void disposeSpillDirectory();
+}

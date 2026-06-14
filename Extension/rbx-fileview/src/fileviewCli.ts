@@ -1,17 +1,24 @@
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import * as vscode from 'vscode';
 import { resolveWorkspaceRoot } from './workspaceRoot';
+import { isLargeDump } from './dumpLimits';
+import { resolveSpillPath } from './spillRegistry';
 
 const execFileAsync = promisify(execFile);
 const CLI_EXECUTABLE = process.platform === 'win32' ? 'rbx-fileview.exe' : 'rbx-fileview';
 const DEFAULT_CLI_ON_PATH = 'rbx-fileview';
+const STDERR_MAX_BUFFER = 16 * 1024 * 1024;
 
 export interface DumpResult {
 	stdout: string;
 	stderr: string;
+	byteLength: number;
+	spillPath?: string;
 }
 
 export const DEFAULT_EXCLUDED_PROPERTIES: string[] = [];
@@ -21,6 +28,8 @@ export interface DumpOptions {
 	includeProperties?: boolean;
 	excludedProperties?: string[];
 	full?: boolean;
+	spillLabelPath?: string;
+	spillSuffix?: string;
 }
 
 export interface CliAvailability {
@@ -82,6 +91,24 @@ function usesDefaultCliResolution(configured: string): boolean {
 
 function isExplicitCliPath(cliPath: string): boolean {
 	return path.isAbsolute(cliPath) || cliPath.includes(path.sep) || cliPath.includes('/');
+}
+
+function formatExecError(error: NodeJS.ErrnoException & { stdout?: string; stderr?: string }): string {
+	const stderr = error.stderr?.trim();
+	if (stderr) {
+		return stderr;
+	}
+
+	const stdout = error.stdout?.trim();
+	if (stdout && stdout.length <= 4096) {
+		return stdout;
+	}
+
+	if (stdout && stdout.length > 4096) {
+		return `${error.message ?? 'rbx-fileview dump failed'} (dump output was too large to include in the error message)`;
+	}
+
+	return error.message || 'Unknown error while running rbx-fileview dump';
 }
 
 export async function resolveCliExecutionTarget(filePath?: string): Promise<CliExecutionTarget> {
@@ -179,10 +206,10 @@ export async function notifyIfCliMissing(output: vscode.OutputChannel, filePath?
 }
 
 export function buildDumpArgs(filePath: string, options: DumpOptions = {}): string[] {
-	const config = vscode.workspace.getConfiguration('rbx-fileview');
+	const config = vscode.workspace.getConfiguration('rbx-fileview', vscode.Uri.file(filePath));
 	const maxDepth = options.maxDepth ?? config.get<number | null>('maxDepth', null);
 	const full = options.full ?? config.get<boolean>('includeDefaultProperties', false);
-	const includeProperties = options.includeProperties ?? true;
+	const includeProperties = options.includeProperties ?? config.get<boolean>('includeProperties', true);
 	const excludedProperties =
 		options.excludedProperties ?? config.get<string[]>('excludedProperties', DEFAULT_EXCLUDED_PROPERTIES);
 
@@ -215,19 +242,39 @@ export async function dumpRobloxFile(
 	options: DumpOptions = {},
 ): Promise<DumpResult> {
 	const target = await resolveCliExecutionTarget(filePath);
-	const args = buildDumpArgs(filePath, options);
+	const tempFile = path.join(os.tmpdir(), `rbx-fileview-${randomUUID()}.yaml`);
+	const args = [...buildDumpArgs(filePath, options), '-o', tempFile];
+	let spillPath: string | undefined;
 
 	try {
-		const { stdout, stderr } = await execFileAsync(target.cliPath, args, {
+		const { stderr } = await execFileAsync(target.cliPath, args, {
 			encoding: 'utf8',
-			maxBuffer: 64 * 1024 * 1024,
+			maxBuffer: STDERR_MAX_BUFFER,
 			windowsHide: true,
 			cwd: target.cwd,
 		});
 
+		const stat = await fs.stat(tempFile);
+		if (isLargeDump(stat.size)) {
+			spillPath = await resolveSpillPath(
+				options.spillLabelPath ?? filePath,
+				options.spillSuffix ?? 'worktree',
+			);
+			await fs.rename(tempFile, spillPath);
+			return {
+				stdout: '',
+				stderr: stderr.trim(),
+				byteLength: stat.size,
+				spillPath,
+			};
+		}
+
+		const stdout = await fs.readFile(tempFile, 'utf8');
+
 		return {
 			stdout: stdout.trimEnd(),
 			stderr: stderr.trim(),
+			byteLength: stat.size,
 		};
 	} catch (error) {
 		const execError = error as NodeJS.ErrnoException & {
@@ -243,10 +290,10 @@ export async function dumpRobloxFile(
 			);
 		}
 
-		const stderr = execError.stderr?.trim();
-		const stdout = execError.stdout?.trim();
-		const message = stderr || stdout || execError.message || 'Unknown error while running rbx-fileview dump';
-
-		throw new Error(message);
+		throw new Error(formatExecError(execError));
+	} finally {
+		if (!spillPath) {
+			await fs.rm(tempFile, { force: true }).catch(() => undefined);
+		}
 	}
 }

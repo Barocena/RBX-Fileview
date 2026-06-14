@@ -1,19 +1,38 @@
+import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { errorMessage } from './errorMessage';
 import type { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
 import { isFileviewUri, normalizeRobloxFileUri, toFileviewUri } from './fileviewUri';
 import { findFileviewSingleTab, focusTab } from './robloxTabs';
 import { robloxFileKey } from './robloxUri';
+import { withOptionalDumpProgress } from './dumpCacheKey';
+import { isSpillDumpUri } from './spillRegistry';
 
 const openingDocuments = new Map<string, Promise<void>>();
 
-export async function applyDumpLanguage(document: vscode.TextDocument): Promise<void> {
-	if (!isFileviewUri(document.uri)) {
-		return;
-	}
+/** Opens files too large for workspace.openTextDocument via the native workbench path. */
+export async function openLargeFileInEditor(
+	uri: vscode.Uri,
+	showOptions?: vscode.TextDocumentShowOptions,
+): Promise<void> {
+	await vscode.commands.executeCommand('vscode.open', uri, {
+		preview: false,
+		...showOptions,
+	});
+}
 
+export async function applyYamlLanguage(document: vscode.TextDocument): Promise<void> {
 	if (document.languageId !== 'yaml') {
 		await vscode.languages.setTextDocumentLanguage(document, 'yaml');
 	}
+}
+
+export async function applyDumpLanguage(document: vscode.TextDocument): Promise<void> {
+	if (!isFileviewUri(document.uri) && !isSpillDumpUri(document.uri)) {
+		return;
+	}
+
+	await applyYamlLanguage(document);
 }
 
 export async function openFileviewDocument(
@@ -43,14 +62,33 @@ export async function openFileviewDocument(
 	}
 
 	const openTask = (async () => {
-		const fileviewUri = toFileviewUri(normalized);
-		output?.appendLine(`Opening RBX-Fileview document: ${fileviewUri.toString()}`);
+		output?.appendLine(`Opening RBX-Fileview document: ${normalized.fsPath}`);
 
 		textProvider?.prepareOpen(normalized);
 
-		const document = await vscode.workspace.openTextDocument(fileviewUri);
-		await applyDumpLanguage(document);
-		await vscode.window.showTextDocument(document, { preview: false, ...showOptions });
+		try {
+			const warmed = await withOptionalDumpProgress(
+				`RBX-Fileview: dumping ${path.basename(normalized.fsPath)}`,
+				[normalized],
+				async () => textProvider?.warmCache(normalized, 'WORKTREE'),
+			);
+
+			if (warmed?.spillPath) {
+				output?.appendLine(`Opening spilled dump: ${warmed.spillPath} (${warmed.byteLength} bytes)`);
+				await openLargeFileInEditor(vscode.Uri.file(warmed.spillPath), showOptions);
+				return;
+			}
+
+			const fileviewUri = toFileviewUri(normalized);
+			const document = await vscode.workspace.openTextDocument(fileviewUri);
+			await applyYamlLanguage(document);
+			await vscode.window.showTextDocument(document, { preview: false, ...showOptions });
+		} catch (error) {
+			const message = errorMessage(error);
+			output?.appendLine(`Open failed: ${message}`);
+			void vscode.window.showErrorMessage(`RBX-Fileview failed to open ${path.basename(normalized.fsPath)}: ${message}`);
+			throw error;
+		}
 	})();
 
 	openingDocuments.set(key, openTask);

@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { dumpRobloxFile } from './fileviewCli';
+import { dumpRobloxFile, type DumpResult } from './fileviewCli';
 
 const execFileAsync = promisify(execFile);
 
@@ -47,9 +47,9 @@ async function writeGitBlobToTemp(repoRoot: string, ref: string, relativePath: s
 export async function dumpRobloxFileAtRef(
 	filePath: string,
 	ref: GitRef,
-): Promise<{ stdout: string; stderr: string }> {
+): Promise<DumpResult> {
 	if (ref === 'WORKTREE') {
-		return dumpRobloxFile(filePath);
+		return dumpRobloxFile(filePath, { spillLabelPath: filePath, spillSuffix: 'worktree' });
 	}
 
 	const repoRoot = await findRepoRoot(filePath);
@@ -61,7 +61,7 @@ export async function dumpRobloxFileAtRef(
 	const tempFile = await writeGitBlobToTemp(repoRoot, ref, relativePath);
 
 	try {
-		return await dumpRobloxFile(tempFile);
+		return await dumpRobloxFile(tempFile, { spillLabelPath: filePath, spillSuffix: 'head' });
 	} finally {
 		await fs.rm(path.dirname(tempFile), { recursive: true, force: true }).catch(() => undefined);
 	}

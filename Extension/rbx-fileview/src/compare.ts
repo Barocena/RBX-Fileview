@@ -1,7 +1,8 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { beginDiffOperation, endDiffOperation } from './diffGuard';
+import { openDumpDiff } from './dumpDiffOpen';
 import { errorMessage } from './errorMessage';
+import { dumpRobloxFile } from './fileviewCli';
 import { fromFileviewUri, isFileviewUri, isRobloxFile, toFileviewUri } from './fileviewUri';
 import { robloxFileKey } from './robloxUri';
 
@@ -11,7 +12,7 @@ export function setCompareSourceContext(active: boolean): void {
 	void vscode.commands.executeCommand('setContext', 'rbx-fileview.compareSourceSet', active);
 }
 
-export function resolveRobloxFileUri(uri: vscode.Uri): vscode.Uri | undefined {
+function resolveRobloxFileUri(uri: vscode.Uri): vscode.Uri | undefined {
 	if (isRobloxFile(uri)) {
 		return uri;
 	}
@@ -33,27 +34,41 @@ function toDiffSideUri(fileUri: vscode.Uri, side: 'left' | 'right'): vscode.Uri 
 	return toFileviewUri(fileUri).with({ query: params.toString() });
 }
 
-export async function openRobloxDiff(
+async function openRobloxDiff(
 	leftFile: vscode.Uri,
 	rightFile: vscode.Uri,
 	output?: vscode.OutputChannel,
 ): Promise<void> {
-	const leftFileview = toDiffSideUri(leftFile, 'left');
-	const rightFileview = toDiffSideUri(rightFile, 'right');
+	output?.appendLine(`Opening diff: ${leftFile.fsPath} | ${rightFile.fsPath}`);
 
-	output?.appendLine(`Opening diff: ${leftFileview.toString()} | ${rightFileview.toString()}`);
-
-	beginDiffOperation();
 	try {
-		await vscode.commands.executeCommand('vscode.diff', leftFileview, rightFileview, diffTitle(leftFile, rightFile), {
-			preview: false,
+		await openDumpDiff({
+			title: diffTitle(leftFile, rightFile),
+			progressTitle: 'RBX-Fileview: dumping files for compare',
+			progressFiles: [leftFile, rightFile],
+			dump: async () =>
+				Promise.all([
+					dumpRobloxFile(leftFile.fsPath, { spillLabelPath: leftFile.fsPath, spillSuffix: 'compare-left' }),
+					dumpRobloxFile(rightFile.fsPath, { spillLabelPath: rightFile.fsPath, spillSuffix: 'compare-right' }),
+				]),
+			left: {
+				fileUri: leftFile,
+				suffix: 'compare-left',
+				query: new URLSearchParams({ side: 'left' }),
+				virtualUri: toDiffSideUri(leftFile, 'left'),
+			},
+			right: {
+				fileUri: rightFile,
+				suffix: 'compare-right',
+				query: new URLSearchParams({ side: 'right' }),
+				virtualUri: toDiffSideUri(rightFile, 'right'),
+			},
+			output,
 		});
 	} catch (error) {
 		output?.appendLine(`Diff failed: ${errorMessage(error)}`);
 		void vscode.window.showErrorMessage(`rbx-fileview diff failed: ${errorMessage(error)}`);
 		throw error;
-	} finally {
-		endDiffOperation();
 	}
 }
 
