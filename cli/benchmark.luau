@@ -8,6 +8,8 @@ export type BenchmarkOptions = {
 	testDir: string,
 	iterations: number,
 	warmup: number,
+	excludedProperties: { string },
+	profile: boolean,
 }
 
 local ROBLOX_EXTENSIONS = {
@@ -28,7 +30,18 @@ local function printHelp()
 	print("Options:")
 	print("  --iterations <n>   Measured runs per file (default: 3)")
 	print("  --warmup <n>       Warmup runs per file, not counted (default: 1)")
+	print("  --exclude-property <names>  Exclude properties (comma-separated, repeatable)")
+	print("  --profile          Print load/encode timings to stderr")
 	print("  -h, --help         Show this help message")
+end
+
+local function appendExcludedProperties(target: { string }, value: string)
+	for name in string.gmatch(value, "[^,]+") do
+		local trimmed = (name:match("^%s*(.-)%s*$")) :: string
+		if trimmed ~= "" then
+			table.insert(target, trimmed)
+		end
+	end
 end
 
 local function parseArgs(args: { string }): BenchmarkOptions
@@ -36,6 +49,8 @@ local function parseArgs(args: { string }): BenchmarkOptions
 		testDir = "Test",
 		iterations = 3,
 		warmup = 1,
+		excludedProperties = {},
+		profile = false,
 	}
 
 	local index = 1
@@ -59,6 +74,15 @@ local function parseArgs(args: { string }): BenchmarkOptions
 				error("Invalid value for --warmup")
 			end
 			options.warmup = math.floor(warmup)
+		elseif arg == "--exclude-property" then
+			index += 1
+			local propertyNames = args[index]
+			if not propertyNames or propertyNames == "" then
+				error("Missing value for --exclude-property")
+			end
+			appendExcludedProperties(options.excludedProperties, propertyNames)
+		elseif arg == "--profile" then
+			options.profile = true
 		elseif arg:sub(1, 1) == "-" then
 			error(`Unknown option: {arg}`)
 		else
@@ -174,16 +198,20 @@ local function benchmarkFile(
 	local instanceCount = 0
 	local outputBytes = 0
 	local samples = table.create(options.iterations)
+	local dumpOptions = {
+		excludedProperties = options.excludedProperties,
+		profile = options.profile,
+	}
 
 	for _ = 1, options.warmup do
-		local result = Dump.dumpFile(filePath)
+		local result = Dump.dumpFile(filePath, dumpOptions)
 		instanceCount = result.stats.instanceCount
 		outputBytes = #result.output
 	end
 
 	for iteration = 1, options.iterations do
 		local start = os.clock()
-		local result = Dump.dumpFile(filePath)
+		local result = Dump.dumpFile(filePath, dumpOptions)
 		local elapsed = os.clock() - start
 
 		instanceCount = result.stats.instanceCount
@@ -224,6 +252,9 @@ function Benchmark.run(args: { string })
 	print("RBX-Fileview dump benchmark")
 	print(`Directory: {options.testDir}`)
 	print(`Files: {#files} | warmup: {options.warmup} | iterations: {options.iterations}`)
+	if #options.excludedProperties > 0 then
+		print(`Excluded properties: {#options.excludedProperties}`)
+	end
 	print("")
 
 	local nameWidth = 24

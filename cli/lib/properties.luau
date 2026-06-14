@@ -18,6 +18,7 @@ export type PropertyWriter = {
 export type PropertyProfile = {
 	readsSeconds: number,
 	compareSeconds: number,
+	convertSeconds: number,
 	writeSeconds: number,
 }
 
@@ -149,10 +150,6 @@ local function buildClassCache(className: string): ClassCache
 	return cached
 end
 
-local function isEmptyRawValue(value: any): boolean
-	return value == nil
-end
-
 local function isEmptyDumpValue(dumpValue: any): boolean
 	if dumpValue == nil then
 		return true
@@ -273,17 +270,6 @@ local function appendInlineDumpValue(dumpValue: any): string?
 	return tostring(dumpValue)
 end
 
-local function toInlineString(dumpValue: any, writer: PropertyWriter, valueIndentLevel: number): string
-	local rendered = appendInlineDumpValue(dumpValue)
-	if rendered ~= nil then
-		return rendered
-	end
-
-	local buf = StringBuffer.new(64)
-	writer.appendScalarValue(buf, dumpValue, valueIndentLevel)
-	return StringBuffer.finish(buf)
-end
-
 local function appendCFrameLine(
 	buf: StringBuffer.StringBuffer,
 	valueIndent: string,
@@ -329,9 +315,14 @@ local function forEachOutputProperty(
 	local cache = buildClassCache(instance.ClassName)
 	local object = instance :: any
 	local context = options.propertyContext
+	local excludedProperties = options.excludedProperties
+	local full = options.full
+	local entries = cache.entries
+	local entryCount = #entries
 
-	for _, entry in cache.entries do
-		if options.excludedProperties[entry.name] then
+	for index = 1, entryCount do
+		local entry = entries[index]
+		if excludedProperties[entry.name] then
 			continue
 		end
 
@@ -341,12 +332,12 @@ local function forEachOutputProperty(
 			profile.readsSeconds += os.clock() - readStarted
 		end
 
-		if isEmptyRawValue(value) then
+		if value == nil then
 			continue
 		end
 
 		local compareStarted = if profile then os.clock() else 0
-		if equalsDefault(value, entry, options.full) then
+		if equalsDefault(value, entry, full) then
 			if profile then
 				profile.compareSeconds += os.clock() - compareStarted
 			end
@@ -356,11 +347,16 @@ local function forEachOutputProperty(
 			profile.compareSeconds += os.clock() - compareStarted
 		end
 
+		local valueType = typeof(value)
 		local dumpValue
-		if typeof(value) == "CFrame" then
+		local convertStarted = if profile then os.clock() else 0
+		if valueType == "CFrame" then
 			dumpValue = value
 		else
 			dumpValue = Values.toDumpValue(value, entry.datatype, context)
+		end
+		if profile then
+			profile.convertSeconds += os.clock() - convertStarted
 		end
 
 		if isEmptyDumpValue(dumpValue) then
@@ -371,7 +367,8 @@ local function forEachOutputProperty(
 	end
 end
 
-local BATCH_SIZE = 48
+local BATCH_LINES = 48
+local BATCH_PARTS = BATCH_LINES * 5
 
 local function flushLineBatch(buf: StringBuffer.StringBuffer, batch: { string }, count: number): number
 	if count > 0 then
@@ -395,8 +392,9 @@ function Properties.appendToBuffer(
 	end
 
 	local wroteHeader = false
-	local lineBatch = table.create(BATCH_SIZE)
+	local lineBatch = table.create(BATCH_PARTS)
 	local lineBatchCount = 0
+	local colonSpace = ": "
 
 	forEachOutputProperty(instance, options, function(entry: PropertyEntry, dumpValue: any)
 		local writeStarted = if profile then os.clock() else 0
@@ -412,14 +410,24 @@ function Properties.appendToBuffer(
 			lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
 			appendCFrameLine(buf, valueIndent, entry.encodedKey, dumpValue)
 		else
-			lineBatchCount += 1
-			lineBatch[lineBatchCount] = valueIndent
-				.. entry.encodedKey
-				.. ": "
-				.. toInlineString(dumpValue, writer, valueIndentLevel)
-				.. "\n"
-			if lineBatchCount >= BATCH_SIZE then
+			local rendered = appendInlineDumpValue(dumpValue)
+			if rendered == nil then
 				lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
+				StringBuffer.append(buf, valueIndent)
+				StringBuffer.append(buf, entry.encodedKey)
+				StringBuffer.append(buf, colonSpace)
+				writer.appendScalarValue(buf, dumpValue, valueIndentLevel)
+				StringBuffer.append(buf, "\n")
+			else
+				lineBatchCount += 5
+				lineBatch[lineBatchCount - 4] = valueIndent
+				lineBatch[lineBatchCount - 3] = entry.encodedKey
+				lineBatch[lineBatchCount - 2] = colonSpace
+				lineBatch[lineBatchCount - 1] = rendered
+				lineBatch[lineBatchCount] = "\n"
+				if lineBatchCount >= BATCH_PARTS then
+					lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
+				end
 			end
 		end
 
@@ -439,6 +447,7 @@ function Properties.newProfile(): PropertyProfile
 	return {
 		readsSeconds = 0,
 		compareSeconds = 0,
+		convertSeconds = 0,
 		writeSeconds = 0,
 	}
 end

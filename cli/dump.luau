@@ -110,7 +110,10 @@ function Dump.dumpFile(filePath: string, options: DumpRunOptions?): DumpResult
 				`  properties: read {string.format("%.2f", props.readsSeconds * 1000)} ms, compare {string.format(
 					"%.2f",
 					props.compareSeconds * 1000
-				)} ms, write {string.format("%.2f", props.writeSeconds * 1000)} ms\n`
+				)} ms, convert {string.format("%.2f", props.convertSeconds * 1000)} ms, write {string.format(
+					"%.2f",
+					props.writeSeconds * 1000
+				)} ms\n`
 			)
 			stdio.ewrite(
 				`  tree: getChildren {string.format("%.2f", encodeProfile.getChildrenSeconds * 1000)} ms, prepareChildren {string.format(
