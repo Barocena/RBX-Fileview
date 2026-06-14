@@ -174,115 +174,183 @@ local function newProfile(): EncodeProfile
 	}
 end
 
-local function appendInstanceNode(
-	buf: StringBuffer.StringBuffer,
+local function estimateInitialCapacity(contentLength: number?, includeProperties: boolean): number
+	if not contentLength then
+		return 4096
+	end
+
+	if includeProperties then
+		return math.max(4096, contentLength * 3)
+	end
+
+	return math.max(4096, math.floor(contentLength / 5))
+end
+
+type TraversalFrame = {
 	instance: Instance,
-	options: EncodeOptions,
-	propertyContext: Properties.PropertyCollectContext,
-	propertyWriter: Properties.PropertyWriter,
-	stats: EncodeStats,
+	depth: number,
+	indentLevel: number,
+	asArrayItem: boolean,
+	duplicateIndex: number?,
+	duplicateTotal: number?,
+	phase: "node" | "children",
+	nextChildIndex: number,
+	children: { Instance }?,
+	duplicateMetadata: InstanceOrder.DuplicateMetadata?,
+}
+
+local framePool: { TraversalFrame } = {}
+
+local function acquireFrame(
+	instance: Instance,
 	depth: number,
 	indentLevel: number,
 	asArrayItem: boolean,
 	duplicateIndex: number?,
 	duplicateTotal: number?
-): ()
-	stats.instanceCount += 1
-	stats.maxDepthReached = math.max(stats.maxDepthReached, depth)
-
-	local structureStarted = if stats.profile then os.clock() else 0
-	local indent = indentFor(indentLevel)
-	local header = formatNodeHeader(instance.ClassName, instance.Name, duplicateIndex, duplicateTotal)
-	local linePrefix = if asArrayItem then `{indent}- {header}:\n` else `{indent}{header}:\n`
-	StringBuffer.append(buf, linePrefix)
-	if stats.profile then
-		stats.profile.structureWriteSeconds += os.clock() - structureStarted
+): TraversalFrame
+	local frame = table.remove(framePool)
+	if frame then
+		frame.instance = instance
+		frame.depth = depth
+		frame.indentLevel = indentLevel
+		frame.asArrayItem = asArrayItem
+		frame.duplicateIndex = duplicateIndex
+		frame.duplicateTotal = duplicateTotal
+		frame.phase = "node"
+		frame.nextChildIndex = 1
+		frame.children = nil
+		frame.duplicateMetadata = nil
+		return frame
 	end
 
-	if options.includeProperties then
-		Properties.appendToBuffer(
-			buf,
-			instance,
-			{
-				full = options.full,
-				includeProperties = true,
-				excludedProperties = options.excludedProperties,
-				propertyContext = propertyContext,
-			},
-			indentFor(indentLevel + 1),
-			indentFor(indentLevel + 2),
-			propertyWriter,
-			indentLevel + 2,
-			if stats.profile then stats.profile.properties else nil
-		)
-	end
-
-	if options.maxDepth ~= nil and depth >= options.maxDepth then
-		return
-	end
-
-	local getChildrenStarted = if stats.profile then os.clock() else 0
-	local children = instance:GetChildren()
-	if stats.profile then
-		stats.profile.getChildrenSeconds += os.clock() - getChildrenStarted
-	end
-
-	local childCount = #children
-	if childCount == 0 then
-		return
-	end
-
-	local prepareStarted = if stats.profile then os.clock() else 0
-	local duplicateMetadata = InstanceOrder.prepareChildren(children)
-	if stats.profile then
-		stats.profile.prepareChildrenSeconds += os.clock() - prepareStarted
-	end
-
-	for index = 1, childCount do
-		local duplicate = duplicateMetadata[index]
-		appendInstanceNode(
-			buf,
-			children[index],
-			options,
-			propertyContext,
-			propertyWriter,
-			stats,
-			depth + 1,
-			indentLevel + 1,
-			false,
-			if duplicate then duplicate.index else nil,
-			if duplicate then duplicate.total else nil
-		)
-	end
+	return {
+		instance = instance,
+		depth = depth,
+		indentLevel = indentLevel,
+		asArrayItem = asArrayItem,
+		duplicateIndex = duplicateIndex,
+		duplicateTotal = duplicateTotal,
+		phase = "node",
+		nextChildIndex = 1,
+	}
 end
 
-local function appendInstanceRoots(
+local function releaseFrame(frame: TraversalFrame)
+	frame.instance = nil :: any
+	frame.children = nil
+	frame.duplicateMetadata = nil
+	table.insert(framePool, frame)
+end
+
+local function appendInstanceTree(
 	buf: StringBuffer.StringBuffer,
-	roots: { Instance },
+	root: Instance,
 	options: EncodeOptions,
 	propertyContext: Properties.PropertyCollectContext,
 	propertyWriter: Properties.PropertyWriter,
-	stats: EncodeStats
+	stats: EncodeStats,
+	rootAsArrayItem: boolean,
+	rootDuplicateIndex: number?,
+	rootDuplicateTotal: number?
 ): ()
-	local rootCount = #roots
-	local duplicateMetadata = InstanceOrder.prepareChildren(roots)
-	local useTopLevelArray = rootCount > 1
+	local stack: { TraversalFrame } = {
+		acquireFrame(root, 0, 0, rootAsArrayItem, rootDuplicateIndex, rootDuplicateTotal),
+	}
 
-	for index = 1, rootCount do
-		local duplicate = duplicateMetadata[index]
-		appendInstanceNode(
-			buf,
-			roots[index],
-			options,
-			propertyContext,
-			propertyWriter,
-			stats,
-			0,
-			0,
-			useTopLevelArray,
-			if duplicate then duplicate.index else nil,
-			if duplicate then duplicate.total else nil
-		)
+	while #stack > 0 do
+		local frame = stack[#stack]
+
+		if frame.phase == "node" then
+			stats.instanceCount += 1
+			stats.maxDepthReached = math.max(stats.maxDepthReached, frame.depth)
+
+			local structureStarted = if stats.profile then os.clock() else 0
+			local indent = indentFor(frame.indentLevel)
+			local header = formatNodeHeader(
+				frame.instance.ClassName,
+				frame.instance.Name,
+				frame.duplicateIndex,
+				frame.duplicateTotal
+			)
+			local linePrefix = if frame.asArrayItem then `{indent}- {header}:\n` else `{indent}{header}:\n`
+			StringBuffer.append(buf, linePrefix)
+			if stats.profile then
+				stats.profile.structureWriteSeconds += os.clock() - structureStarted
+			end
+
+			if options.includeProperties then
+				Properties.appendToBuffer(
+					buf,
+					frame.instance,
+					{
+						full = options.full,
+						includeProperties = true,
+						excludedProperties = options.excludedProperties,
+						propertyContext = propertyContext,
+					},
+					indentFor(frame.indentLevel + 1),
+					indentFor(frame.indentLevel + 2),
+					propertyWriter,
+					frame.indentLevel + 2,
+					if stats.profile then stats.profile.properties else nil
+				)
+			end
+
+			if options.maxDepth ~= nil and frame.depth >= options.maxDepth then
+				local finished = table.remove(stack) :: TraversalFrame
+				releaseFrame(finished)
+				continue
+			end
+
+			local getChildrenStarted = if stats.profile then os.clock() else 0
+			local children = frame.instance:GetChildren()
+			if stats.profile then
+				stats.profile.getChildrenSeconds += os.clock() - getChildrenStarted
+			end
+
+			if #children == 0 then
+				local finished = table.remove(stack) :: TraversalFrame
+				releaseFrame(finished)
+				continue
+			end
+
+			local prepareStarted = if stats.profile then os.clock() else 0
+			local duplicateMetadata = InstanceOrder.prepareChildren(children)
+			if stats.profile then
+				stats.profile.prepareChildrenSeconds += os.clock() - prepareStarted
+			end
+
+			frame.phase = "children"
+			frame.children = children
+			frame.duplicateMetadata = duplicateMetadata
+			frame.nextChildIndex = 1
+		else
+			local children = frame.children :: { Instance }
+			local duplicateMetadata = frame.duplicateMetadata :: InstanceOrder.DuplicateMetadata
+			local childIndex = frame.nextChildIndex
+
+			if childIndex > #children then
+				local finished = table.remove(stack) :: TraversalFrame
+				releaseFrame(finished)
+				continue
+			end
+
+			frame.nextChildIndex = childIndex + 1
+			local duplicate = duplicateMetadata[childIndex]
+
+			table.insert(
+				stack,
+				acquireFrame(
+					children[childIndex],
+					frame.depth + 1,
+					frame.indentLevel + 1,
+					false,
+					if duplicate then duplicate.index else nil,
+					if duplicate then duplicate.total else nil
+				)
+			)
+		end
 	end
 end
 
@@ -293,8 +361,7 @@ function YamlFormat.encodePlace(root: Instance, options: EncodeOptions, capacity
 		profile = if options.profile then newProfile() else nil,
 	}
 
-	local initialCapacity = if capacityHint then math.max(4096, capacityHint * 3) else 4096
-	local buf = StringBuffer.new(initialCapacity)
+	local buf = StringBuffer.new(estimateInitialCapacity(capacityHint, options.includeProperties))
 	local propertyContext: Properties.PropertyCollectContext = {
 		pathCache = {},
 		full = options.full,
@@ -303,7 +370,7 @@ function YamlFormat.encodePlace(root: Instance, options: EncodeOptions, capacity
 		appendScalarValue = appendScalarValue,
 	}
 
-	appendInstanceNode(buf, root, options, propertyContext, propertyWriter, stats, 0, 0, false)
+	appendInstanceTree(buf, root, options, propertyContext, propertyWriter, stats, false)
 
 	local finishStarted = if stats.profile then os.clock() else 0
 	local output = StringBuffer.finish(buf, true)
@@ -324,8 +391,7 @@ function YamlFormat.encodeModel(roots: { Instance }, options: EncodeOptions, cap
 		profile = if options.profile then newProfile() else nil,
 	}
 
-	local initialCapacity = if capacityHint then math.max(4096, capacityHint * 3) else 4096
-	local buf = StringBuffer.new(initialCapacity)
+	local buf = StringBuffer.new(estimateInitialCapacity(capacityHint, options.includeProperties))
 	local propertyContext: Properties.PropertyCollectContext = {
 		pathCache = {},
 		full = options.full,
@@ -334,7 +400,24 @@ function YamlFormat.encodeModel(roots: { Instance }, options: EncodeOptions, cap
 		appendScalarValue = appendScalarValue,
 	}
 
-	appendInstanceRoots(buf, roots, options, propertyContext, propertyWriter, stats)
+	local rootCount = #roots
+	local duplicateMetadata = InstanceOrder.prepareChildren(roots)
+	local useTopLevelArray = rootCount > 1
+
+	for index = 1, rootCount do
+		local duplicate = duplicateMetadata[index]
+		appendInstanceTree(
+			buf,
+			roots[index],
+			options,
+			propertyContext,
+			propertyWriter,
+			stats,
+			useTopLevelArray,
+			if duplicate then duplicate.index else nil,
+			if duplicate then duplicate.total else nil
+		)
+	end
 
 	local finishStarted = if stats.profile then os.clock() else 0
 	local output = StringBuffer.finish(buf, true)

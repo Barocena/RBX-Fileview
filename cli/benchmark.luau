@@ -8,6 +8,7 @@ export type BenchmarkOptions = {
 	testDir: string,
 	iterations: number,
 	warmup: number,
+	includeProperties: boolean,
 	excludedProperties: { string },
 	profile: boolean,
 }
@@ -30,6 +31,7 @@ local function printHelp()
 	print("Options:")
 	print("  --iterations <n>   Measured runs per file (default: 3)")
 	print("  --warmup <n>       Warmup runs per file, not counted (default: 1)")
+	print("  --no-properties    Instance structure only")
 	print("  --exclude-property <names>  Exclude properties (comma-separated, repeatable)")
 	print("  --profile          Print load/encode timings to stderr")
 	print("  -h, --help         Show this help message")
@@ -49,6 +51,7 @@ local function parseArgs(args: { string }): BenchmarkOptions
 		testDir = "Test",
 		iterations = 3,
 		warmup = 1,
+		includeProperties = true,
 		excludedProperties = {},
 		profile = false,
 	}
@@ -74,6 +77,10 @@ local function parseArgs(args: { string }): BenchmarkOptions
 				error("Invalid value for --warmup")
 			end
 			options.warmup = math.floor(warmup)
+		elseif arg == "--properties" then
+			error("The --properties option was removed. Properties are included by default; use --no-properties to omit them.")
+		elseif arg == "--no-properties" then
+			options.includeProperties = false
 		elseif arg == "--exclude-property" then
 			index += 1
 			local propertyNames = args[index]
@@ -199,6 +206,7 @@ local function benchmarkFile(
 	local outputBytes = 0
 	local samples = table.create(options.iterations)
 	local dumpOptions = {
+		includeProperties = options.includeProperties,
 		excludedProperties = options.excludedProperties,
 		profile = options.profile,
 	}
@@ -252,7 +260,9 @@ function Benchmark.run(args: { string })
 	print("RBX-Fileview dump benchmark")
 	print(`Directory: {options.testDir}`)
 	print(`Files: {#files} | warmup: {options.warmup} | iterations: {options.iterations}`)
-	if #options.excludedProperties > 0 then
+	if not options.includeProperties then
+		print("Mode: structure only (no properties)")
+	elseif #options.excludedProperties > 0 then
 		print(`Excluded properties: {#options.excludedProperties}`)
 	end
 	print("")

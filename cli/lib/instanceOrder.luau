@@ -8,7 +8,10 @@ type ChildSortEntry = {
 	className: string,
 	uniqueId: string,
 	fileOrder: number,
+	duplicateTotal: number,
 }
+
+type LabelCountMap = { [string]: { [string]: number } }
 
 local function readUniqueIdString(instance: Instance): string
 	local uid = (instance :: any).UniqueId
@@ -40,11 +43,26 @@ local function compareSortEntries(a: ChildSortEntry, b: ChildSortEntry): boolean
 	return a.fileOrder < b.fileOrder
 end
 
-export type DuplicateMetadata = { [number]: { index: number, total: number } }
+local function getLabelCount(labelCounts: LabelCountMap, name: string, className: string): number
+	local byClass = labelCounts[name]
+	if not byClass then
+		return 0
+	end
 
-local function siblingLabelKey(name: string, className: string): string
-	return name .. "\0" .. className
+	return byClass[className] or 0
 end
+
+local function incrementLabelCount(labelCounts: LabelCountMap, name: string, className: string)
+	local byClass = labelCounts[name]
+	if not byClass then
+		byClass = {}
+		labelCounts[name] = byClass
+	end
+
+	byClass[className] = (byClass[className] or 0) + 1
+end
+
+export type DuplicateMetadata = { [number]: { index: number, total: number } }
 
 function InstanceOrder.prepareChildren(children: { Instance }): DuplicateMetadata
 	local count = #children
@@ -52,17 +70,27 @@ function InstanceOrder.prepareChildren(children: { Instance }): DuplicateMetadat
 		return {}
 	end
 
-	local labelCounts: { [string]: number } = {}
+	if count == 2 then
+		local first = children[1]
+		local second = children[2]
+		if first.Name ~= second.Name or first.ClassName ~= second.ClassName then
+			return {}
+		end
+	end
+
+	local labelCounts: LabelCountMap = {}
 	local hasDuplicates = false
 
 	for index = 1, count do
 		local child = children[index]
-		local labelKey = siblingLabelKey(child.Name, child.ClassName)
-		local total = (labelCounts[labelKey] or 0) + 1
-		labelCounts[labelKey] = total
-		if total > 1 then
+		local name = child.Name
+		local className = child.ClassName
+
+		if getLabelCount(labelCounts, name, className) > 0 then
 			hasDuplicates = true
 		end
+
+		incrementLabelCount(labelCounts, name, className)
 	end
 
 	if not hasDuplicates then
@@ -82,12 +110,13 @@ function InstanceOrder.prepareChildren(children: { Instance }): DuplicateMetadat
 			className = className,
 			uniqueId = "",
 			fileOrder = index,
+			duplicateTotal = getLabelCount(labelCounts, name, className),
 		}
 	end
 
 	for index = 1, count do
 		local entry = entries[index]
-		if (labelCounts[siblingLabelKey(entry.name, entry.className)] or 0) > 1 then
+		if entry.duplicateTotal > 1 then
 			entry.uniqueId = readUniqueIdString(entry.instance)
 		end
 	end
@@ -95,20 +124,18 @@ function InstanceOrder.prepareChildren(children: { Instance }): DuplicateMetadat
 	table.sort(entries, compareSortEntries)
 
 	local duplicateMetadata: DuplicateMetadata = {}
-	local duplicateIndexes: { [string]: number } = {}
+	local duplicateIndexes: LabelCountMap = {}
 
 	for index = 1, count do
 		local entry = entries[index]
 		children[index] = entry.instance
 
-		local total = labelCounts[siblingLabelKey(entry.name, entry.className)] or 0
-		if total > 1 then
-			local labelKey = siblingLabelKey(entry.name, entry.className)
-			local nextIndex = (duplicateIndexes[labelKey] or 0) + 1
-			duplicateIndexes[labelKey] = nextIndex
+		if entry.duplicateTotal > 1 then
+			local nextIndex = getLabelCount(duplicateIndexes, entry.name, entry.className) + 1
+			incrementLabelCount(duplicateIndexes, entry.name, entry.className)
 			duplicateMetadata[index] = {
 				index = nextIndex,
-				total = total,
+				total = entry.duplicateTotal,
 			}
 		end
 	end
