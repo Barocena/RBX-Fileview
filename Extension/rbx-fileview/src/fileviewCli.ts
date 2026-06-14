@@ -3,6 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import * as vscode from 'vscode';
+import { resolveWorkspaceRoot } from './workspaceRoot';
 
 const execFileAsync = promisify(execFile);
 const CLI_EXECUTABLE = process.platform === 'win32' ? 'rbx-fileview.exe' : 'rbx-fileview';
@@ -25,6 +26,11 @@ export interface DumpOptions {
 export interface CliAvailability {
 	available: boolean;
 	resolvedPath: string;
+}
+
+export interface CliExecutionTarget {
+	cliPath: string;
+	cwd?: string;
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -78,49 +84,62 @@ function isExplicitCliPath(cliPath: string): boolean {
 	return path.isAbsolute(cliPath) || cliPath.includes(path.sep) || cliPath.includes('/');
 }
 
-export async function resolveCliPath(filePath?: string): Promise<string> {
+export async function resolveCliExecutionTarget(filePath?: string): Promise<CliExecutionTarget> {
 	const config = vscode.workspace.getConfiguration('rbx-fileview');
 	const configured = config.get<string>('cliPath', '').trim();
+	const workspaceRoot = resolveWorkspaceRoot(filePath);
 
 	if (!usesDefaultCliResolution(configured)) {
-		return configured;
+		return {
+			cliPath: configured,
+			cwd: workspaceRoot,
+		};
 	}
 
 	if (filePath) {
 		const nearFile = await findCliNearFile(filePath);
 		if (nearFile) {
-			return nearFile;
+			return { cliPath: nearFile, cwd: workspaceRoot };
 		}
 	}
 
 	const inWorkspace = await findWorkspaceCli();
 	if (inWorkspace) {
-		return inWorkspace;
+		return { cliPath: inWorkspace, cwd: workspaceRoot };
 	}
 
-	return CLI_EXECUTABLE;
+	return {
+		cliPath: CLI_EXECUTABLE,
+		cwd: workspaceRoot,
+	};
+}
+
+export async function resolveCliPath(filePath?: string): Promise<string> {
+	const target = await resolveCliExecutionTarget(filePath);
+	return target.cliPath;
 }
 
 export async function checkCliAvailability(filePath?: string): Promise<CliAvailability> {
-	const resolvedPath = await resolveCliPath(filePath);
+	const target = await resolveCliExecutionTarget(filePath);
 
-	if (isExplicitCliPath(resolvedPath)) {
+	if (isExplicitCliPath(target.cliPath)) {
 		return {
-			available: await fileExists(resolvedPath),
-			resolvedPath,
+			available: await fileExists(target.cliPath),
+			resolvedPath: target.cliPath,
 		};
 	}
 
 	try {
-		await execFileAsync(resolvedPath, ['--version'], {
+		await execFileAsync(target.cliPath, ['--version'], {
 			encoding: 'utf8',
 			timeout: 5000,
 			windowsHide: true,
+			cwd: target.cwd,
 		});
 
 		return {
 			available: true,
-			resolvedPath,
+			resolvedPath: target.cliPath,
 		};
 	} catch (error) {
 		const execError = error as NodeJS.ErrnoException;
@@ -128,13 +147,13 @@ export async function checkCliAvailability(filePath?: string): Promise<CliAvaila
 		if (execError.code === 'ENOENT') {
 			return {
 				available: false,
-				resolvedPath,
+				resolvedPath: target.cliPath,
 			};
 		}
 
 		return {
 			available: true,
-			resolvedPath,
+			resolvedPath: target.cliPath,
 		};
 	}
 }
@@ -150,7 +169,7 @@ export async function notifyIfCliMissing(output: vscode.OutputChannel, filePath?
 	output.appendLine(`rbx-fileview CLI not found (looked for: ${resolvedPath})`);
 
 	const selection = await vscode.window.showWarningMessage(
-		'RBX-Fileview: rbx-fileview CLI not found. Install it on PATH or set rbx-fileview.cliPath in settings.',
+		'RBX-Fileview: rbx-fileview CLI not found. Install it for this project or set rbx-fileview.cliPath in settings.',
 		'Open Settings',
 	);
 
@@ -195,14 +214,15 @@ export async function dumpRobloxFile(
 	filePath: string,
 	options: DumpOptions = {},
 ): Promise<DumpResult> {
-	const cliPath = await resolveCliPath(filePath);
+	const target = await resolveCliExecutionTarget(filePath);
 	const args = buildDumpArgs(filePath, options);
 
 	try {
-		const { stdout, stderr } = await execFileAsync(cliPath, args, {
+		const { stdout, stderr } = await execFileAsync(target.cliPath, args, {
 			encoding: 'utf8',
 			maxBuffer: 64 * 1024 * 1024,
 			windowsHide: true,
+			cwd: target.cwd,
 		});
 
 		return {
@@ -218,8 +238,8 @@ export async function dumpRobloxFile(
 
 		if (execError.code === 'ENOENT') {
 			throw new Error(
-				`rbx-fileview CLI not found at "${cliPath}". ` +
-					'Install rbx-fileview on PATH, place rbx-fileview.exe in the workspace root, or set "rbx-fileview.cliPath".',
+				`rbx-fileview CLI not found at "${target.cliPath}". ` +
+					'Install rbx-fileview for this project, add it on PATH, place rbx-fileview.exe in the workspace root, or set "rbx-fileview.cliPath".',
 			);
 		}
 
