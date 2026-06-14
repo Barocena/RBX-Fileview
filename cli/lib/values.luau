@@ -1,4 +1,5 @@
 local serde = require("@lune/serde")
+local Base64 = require("./base64")
 
 export type SerializeContext = {
 	pathCache: { [Instance]: string },
@@ -115,32 +116,6 @@ function Values.equals(a: any, b: any): boolean
 	return false
 end
 
-local function encodeBase64(data: string): string
-	local alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-	local output = table.create(math.ceil(#data / 3) * 4)
-	local index = 1
-
-	for i = 1, #data, 3 do
-		local b1 = string.byte(data, i)
-		local b2 = string.byte(data, i + 1) or 0
-		local b3 = string.byte(data, i + 2) or 0
-
-		local combined = bit32.lshift(b1, 16) + bit32.lshift(b2, 8) + b3
-
-		output[index] = string.sub(alphabet, bit32.rshift(combined, 18) + 1, bit32.rshift(combined, 18) + 1)
-		output[index + 1] = string.sub(alphabet, bit32.band(bit32.rshift(combined, 12), 63) + 1, bit32.band(bit32.rshift(combined, 12), 63) + 1)
-		output[index + 2] = if i + 1 <= #data
-			then string.sub(alphabet, bit32.band(bit32.rshift(combined, 6), 63) + 1, bit32.band(bit32.rshift(combined, 6), 63) + 1)
-			else "="
-		output[index + 3] = if i + 2 <= #data
-			then string.sub(alphabet, bit32.band(combined, 63) + 1, bit32.band(combined, 63) + 1)
-			else "="
-		index += 4
-	end
-
-	return table.concat(output)
-end
-
 local function normalizeContentString(value: string): string
 	local uri = string.match(value, "^Content%(Uri=(.+)%)$")
 	if uri then
@@ -175,7 +150,7 @@ local function dumpBinaryData(data: string): any
 		return { #data, serde.hash("sha256", data) }
 	end
 
-	return encodeBase64(data)
+	return Base64.encode(data)
 end
 
 function Values.toDumpValue(value: any, datatype: string, context: SerializeContext): any
