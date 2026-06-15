@@ -247,6 +247,123 @@ local function appendInlineDumpValue(dumpValue: any): string?
 	return tostring(dumpValue)
 end
 
+local function compareTagNames(left: string, right: string): boolean
+	return left < right
+end
+
+local function formatTagArray(tags: { string }): string
+	local parts = table.create(#tags)
+	for index, tag in tags do
+		parts[index] = `"` .. tag:gsub('"', '\\"') .. `"`
+	end
+
+	return "[" .. table.concat(parts, ", ") .. "]"
+end
+
+local function collectSortedTags(instance: Instance): { string }
+	local ok, tags = pcall(function()
+		return instance:GetTags()
+	end)
+
+	if not ok or tags == nil then
+		return {}
+	end
+
+	local sorted: { string } = {}
+	for _, tag in tags do
+		table.insert(sorted, tag)
+	end
+
+	if #sorted == 0 then
+		return {}
+	end
+
+	table.sort(sorted, compareTagNames)
+	return sorted
+end
+
+local function attributeTypeName(value: any): string
+	local valueType = typeof(value)
+	if valueType == "string" then
+		return "String"
+	end
+
+	if valueType == "boolean" then
+		return "Boolean"
+	end
+
+	if valueType == "number" then
+		return "Number"
+	end
+
+	return valueType
+end
+
+local function formatAttributeKey(name: string, value: any): string
+	local typeName = attributeTypeName(value)
+	return `{typeName} "{name:gsub('"', '\\"')}"`
+end
+
+type AttributeEntry = {
+	name: string,
+	encodedKey: string,
+	dumpValue: any,
+}
+
+local function collectSortedAttributes(instance: Instance, context: Values.SerializeContext): { AttributeEntry }
+	local ok, attributes = pcall(function()
+		return instance:GetAttributes()
+	end)
+
+	if not ok then
+		return {}
+	end
+
+	local names: { string } = {}
+	for name in attributes do
+		table.insert(names, name)
+	end
+
+	if #names == 0 then
+		return {}
+	end
+
+	table.sort(names)
+
+	local entries: { AttributeEntry } = {}
+	for _, name in names do
+		local value = attributes[name]
+		local dumpValue
+		if typeof(value) == "CFrame" then
+			dumpValue = value
+		else
+			dumpValue = Values.toDumpValue(value, "", context)
+		end
+
+		if isEmptyDumpValue(dumpValue) then
+			continue
+		end
+
+		table.insert(entries, {
+			name = name,
+			encodedKey = formatAttributeKey(name, value),
+			dumpValue = dumpValue,
+		})
+	end
+
+	return entries
+end
+
+local BATCH_LINES = 48
+local BATCH_PARTS = BATCH_LINES * 5
+
+local function flushLineBatch(buf: StringBuffer.StringBuffer, batch: { string }, count: number): number
+	if count > 0 then
+		StringBuffer.append(buf, table.concat(batch, "", 1, count))
+	end
+	return 0
+end
+
 local function appendCFrameLine(
 	buf: StringBuffer.StringBuffer,
 	valueIndent: string,
@@ -281,6 +398,47 @@ local function appendCFrameLine(
 	StringBuffer.append(buf, ", ")
 	StringBuffer.append(buf, formatNumber(r22))
 	StringBuffer.append(buf, "]\n")
+end
+
+local function appendPropertyLine(
+	buf: StringBuffer.StringBuffer,
+	lineBatch: { string },
+	lineBatchCount: number,
+	valueIndent: string,
+	encodedKey: string,
+	dumpValue: any,
+	writer: PropertyWriter,
+	valueIndentLevel: number,
+	colonSpace: string
+): number
+	if typeof(dumpValue) == "CFrame" then
+		lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
+		appendCFrameLine(buf, valueIndent, encodedKey, dumpValue)
+		return lineBatchCount
+	end
+
+	local rendered = appendInlineDumpValue(dumpValue)
+	if rendered == nil then
+		lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
+		StringBuffer.append(buf, valueIndent)
+		StringBuffer.append(buf, encodedKey)
+		StringBuffer.append(buf, colonSpace)
+		writer.appendScalarValue(buf, dumpValue, valueIndentLevel)
+		StringBuffer.append(buf, "\n")
+		return lineBatchCount
+	end
+
+	lineBatchCount += 5
+	lineBatch[lineBatchCount - 4] = valueIndent
+	lineBatch[lineBatchCount - 3] = encodedKey
+	lineBatch[lineBatchCount - 2] = colonSpace
+	lineBatch[lineBatchCount - 1] = rendered
+	lineBatch[lineBatchCount] = "\n"
+	if lineBatchCount >= BATCH_PARTS then
+		return flushLineBatch(buf, lineBatch, lineBatchCount)
+	end
+
+	return lineBatchCount
 end
 
 local function forEachOutputProperty(
@@ -344,16 +502,6 @@ local function forEachOutputProperty(
 	end
 end
 
-local BATCH_LINES = 48
-local BATCH_PARTS = BATCH_LINES * 5
-
-local function flushLineBatch(buf: StringBuffer.StringBuffer, batch: { string }, count: number): number
-	if count > 0 then
-		StringBuffer.append(buf, table.concat(batch, "", 1, count))
-	end
-	return 0
-end
-
 function Properties.appendToBuffer(
 	buf: StringBuffer.StringBuffer,
 	instance: Instance,
@@ -383,35 +531,73 @@ function Properties.appendToBuffer(
 			wroteHeader = true
 		end
 
-		if typeof(dumpValue) == "CFrame" then
-			lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
-			appendCFrameLine(buf, valueIndent, entry.encodedKey, dumpValue)
-		else
-			local rendered = appendInlineDumpValue(dumpValue)
-			if rendered == nil then
-				lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
-				StringBuffer.append(buf, valueIndent)
-				StringBuffer.append(buf, entry.encodedKey)
-				StringBuffer.append(buf, colonSpace)
-				writer.appendScalarValue(buf, dumpValue, valueIndentLevel)
-				StringBuffer.append(buf, "\n")
-			else
-				lineBatchCount += 5
-				lineBatch[lineBatchCount - 4] = valueIndent
-				lineBatch[lineBatchCount - 3] = entry.encodedKey
-				lineBatch[lineBatchCount - 2] = colonSpace
-				lineBatch[lineBatchCount - 1] = rendered
-				lineBatch[lineBatchCount] = "\n"
-				if lineBatchCount >= BATCH_PARTS then
-					lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
-				end
-			end
-		end
+		lineBatchCount = appendPropertyLine(
+			buf,
+			lineBatch,
+			lineBatchCount,
+			valueIndent,
+			entry.encodedKey,
+			dumpValue,
+			writer,
+			valueIndentLevel,
+			colonSpace
+		)
 
 		if profile then
 			profile.writeSeconds += os.clock() - writeStarted
 		end
 	end, profile)
+
+	local tags = collectSortedTags(instance)
+	local attributes = collectSortedAttributes(instance, options.propertyContext)
+
+	if #tags > 0 then
+		if not wroteHeader then
+			lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
+			StringBuffer.append(buf, propsIndent)
+			StringBuffer.append(buf, "props:\n")
+			wroteHeader = true
+		end
+
+		lineBatchCount += 5
+		lineBatch[lineBatchCount - 4] = valueIndent
+		lineBatch[lineBatchCount - 3] = "Tags"
+		lineBatch[lineBatchCount - 2] = colonSpace
+		lineBatch[lineBatchCount - 1] = formatTagArray(tags)
+		lineBatch[lineBatchCount] = "\n"
+		if lineBatchCount >= BATCH_PARTS then
+			lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
+		end
+	end
+
+	if #attributes > 0 then
+		if not wroteHeader then
+			lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
+			StringBuffer.append(buf, propsIndent)
+			StringBuffer.append(buf, "props:\n")
+			wroteHeader = true
+		end
+
+		lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
+		StringBuffer.append(buf, valueIndent)
+		StringBuffer.append(buf, "Attributes:\n")
+
+		local attributeIndent = valueIndent .. "  "
+		for index = 1, #attributes do
+			local entry = attributes[index]
+			lineBatchCount = appendPropertyLine(
+				buf,
+				lineBatch,
+				lineBatchCount,
+				attributeIndent,
+				entry.encodedKey,
+				entry.dumpValue,
+				writer,
+				valueIndentLevel + 1,
+				colonSpace
+			)
+		end
+	end
 
 	if wroteHeader then
 		lineBatchCount = flushLineBatch(buf, lineBatch, lineBatchCount)
