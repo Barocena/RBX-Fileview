@@ -17,6 +17,34 @@ import { openFileviewDocument, openFileviewDocumentAtRef } from './openRobloxFil
 import { markScmOriginatedOpen } from './scmOpenContext';
 import { openGitChanges, openGitRefsDiff } from './scmDiff';
 
+async function routeRobloxGitRevisionOpen(
+	fileUri: vscode.Uri,
+	ref: GitRef,
+	sourceTab: vscode.Tab,
+	output: vscode.OutputChannel,
+	textProvider?: FileviewTextDocumentProvider,
+): Promise<void> {
+	const normalized = normalizeRobloxFileUri(fileUri);
+	markScmOriginatedOpen(normalized);
+
+	output.appendLine(`Routing Roblox git revision to rbx-fileview: ${normalized.fsPath} (${ref})`);
+
+	try {
+		await openFileviewDocumentAtRef(
+			normalized,
+			ref,
+			output,
+			{ viewColumn: viewColumnForTab(sourceTab), preview: false },
+			textProvider,
+		);
+		await closeTabIfPresent(sourceTab);
+	} catch (error) {
+		const message = errorMessage(error);
+		output.appendLine(`Roblox git revision open failed: ${message}`);
+		void vscode.window.showErrorMessage(`RBX-Fileview failed to open Roblox file: ${message}`);
+	}
+}
+
 const handledFiles = new Set<string>();
 
 type RobloxOpenIntent = 'explorer' | 'scmDiff';
@@ -232,9 +260,7 @@ export function setupRobloxTabRouter(
 
 				const ref = gitRefFromTabUri(tab.input.uri);
 				if (ref !== 'WORKTREE') {
-					output.appendLine(`Routing Roblox git revision to rbx-fileview: ${fileUri.fsPath} (${ref})`);
-					void openFileviewDocumentAtRef(fileUri, ref, output, { viewColumn: viewColumnForTab(tab), preview: false }, textProvider);
-					void closeTabIfPresent(tab);
+					void routeRobloxGitRevisionOpen(fileUri, ref, tab, output, textProvider);
 					continue;
 				}
 

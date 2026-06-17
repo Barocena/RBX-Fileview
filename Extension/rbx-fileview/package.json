@@ -159,6 +159,18 @@
         }
       ]
     },
+    "resourceLabelFormatters": [
+      {
+        "scheme": "rbx-fileview",
+        "authority": "*",
+        "formatting": {
+          "label": "${query.basename} (${authority})",
+          "separator": "/",
+          "tildify": true
+        },
+        "priority": true
+      }
+    ],
     "configuration": {
       "title": "RBX-Fileview",
       "properties": {

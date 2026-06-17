@@ -23,7 +23,7 @@ export function isFileviewUri(uri: vscode.Uri): boolean {
 
 export function normalizeRobloxFileUri(uri: vscode.Uri): vscode.Uri {
 	if (isFileviewUri(uri)) {
-		return fromFileviewUri(uri).with({ query: '', fragment: '' });
+		return fromFileviewUri(uri);
 	}
 
 	return uri.with({ query: '', fragment: '' });
@@ -34,11 +34,41 @@ export function toFileviewUri(fileUri: vscode.Uri): vscode.Uri {
 }
 
 export function fromFileviewUri(fileviewUri: vscode.Uri): vscode.Uri {
-	return fileviewUri.with({ scheme: 'file' });
+	return fileviewUri.with({ scheme: 'file', authority: '', query: '', fragment: '' });
+}
+
+export function formatRefForDisplay(ref: GitRef): string {
+	if (ref === 'WORKTREE') {
+		return '';
+	}
+
+	if (ref === 'HEAD' || ref === 'INDEX') {
+		return ref;
+	}
+
+	return ref.length > 8 ? `${ref.slice(0, 8)}…` : ref;
+}
+
+function parseFileviewQuery(uri: vscode.Uri): { ref?: string } {
+	const query = decodeURIComponent(uri.query);
+	if (!query) {
+		return {};
+	}
+
+	if (query.startsWith('{')) {
+		try {
+			return JSON.parse(query) as { ref?: string };
+		} catch {
+			return {};
+		}
+	}
+
+	const ref = new URLSearchParams(query).get('ref');
+	return ref ? { ref } : {};
 }
 
 export function getFileviewGitRef(uri: vscode.Uri): GitRef {
-	const ref = new URLSearchParams(uri.query).get('ref');
+	const ref = parseFileviewQuery(uri).ref;
 	if (!ref || ref === 'WORKTREE') {
 		return 'WORKTREE';
 	}
@@ -46,8 +76,20 @@ export function getFileviewGitRef(uri: vscode.Uri): GitRef {
 	return ref;
 }
 
+export function isFileviewGitRevision(uri: vscode.Uri): boolean {
+	return isFileviewUri(uri) && getFileviewGitRef(uri) !== 'WORKTREE';
+}
+
 export function toFileviewGitUri(fileUri: vscode.Uri, ref: GitRef): vscode.Uri {
-	const params = new URLSearchParams();
-	params.set('ref', ref);
-	return toFileviewUri(fileUri).with({ query: params.toString() });
+	const base = toFileviewUri(fileUri);
+	if (ref === 'WORKTREE') {
+		return base;
+	}
+
+	const displayRef = formatRefForDisplay(ref);
+	const basename = path.basename(normalizeRobloxFileUri(fileUri).fsPath);
+	return base.with({
+		authority: displayRef,
+		query: JSON.stringify({ ref, basename }),
+	});
 }

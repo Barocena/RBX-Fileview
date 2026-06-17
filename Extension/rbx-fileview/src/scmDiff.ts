@@ -68,13 +68,11 @@ export async function openGitRefsDiff(
 			left: {
 				fileUri: target,
 				suffix: spillSuffixForRef(leftRef),
-				query: new URLSearchParams({ ref: leftRef }),
 				virtualUri: toFileviewGitUri(target, leftRef),
 			},
 			right: {
 				fileUri: target,
 				suffix: spillSuffixForRef(rightRef),
-				query: new URLSearchParams({ ref: rightRef }),
 				virtualUri: toFileviewGitUri(target, rightRef),
 			},
 			viewColumn: options?.viewColumn,

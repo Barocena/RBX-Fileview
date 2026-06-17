@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { errorMessage } from '../errorMessage';
-import { isRobloxFile, ROBLOX_EXTENSIONS } from '../fileviewUri';
+import { isRobloxFile, ROBLOX_EXTENSIONS, formatRefForDisplay, getFileviewGitRef, toFileviewGitUri } from '../fileviewUri';
 import { buildDumpArgs, DEFAULT_EXCLUDED_PROPERTIES } from '../fileviewCli';
 import { isLargeDump, VSCODE_VIRTUAL_DOC_LIMIT_BYTES } from '../dumpLimits';
 import { gitRefFromGitUri, normalizeGitRef, parseGitUri } from '../robloxUri';
@@ -101,5 +101,28 @@ suite('Git URI helpers', () => {
 		);
 
 		assert.strictEqual(gitRefFromGitUri(uri), 'INDEX');
+	});
+});
+
+suite('Fileview git URI helpers', () => {
+	test('formatRefForDisplay shortens long commit hashes', () => {
+		assert.strictEqual(formatRefForDisplay('abc123def456'), 'abc123de…');
+		assert.strictEqual(formatRefForDisplay('HEAD'), 'HEAD');
+	});
+
+	test('toFileviewGitUri encodes revision metadata for tab labels', () => {
+		const uri = toFileviewGitUri(vscode.Uri.file('C:/game/Test/sample.rbxm'), 'abc123def456');
+
+		assert.strictEqual(uri.authority, 'abc123de…');
+		assert.strictEqual(getFileviewGitRef(uri), 'abc123def456');
+		assert.strictEqual(JSON.parse(uri.query).basename, 'sample.rbxm');
+	});
+
+	test('toFileviewGitUri omits revision metadata for worktree', () => {
+		const uri = toFileviewGitUri(vscode.Uri.file('C:/game/Test/sample.rbxm'), 'WORKTREE');
+
+		assert.strictEqual(uri.authority, '');
+		assert.strictEqual(uri.query, '');
+		assert.strictEqual(getFileviewGitRef(uri), 'WORKTREE');
 	});
 });

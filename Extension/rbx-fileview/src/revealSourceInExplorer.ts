@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { isActiveDiffTab } from './diffGuard';
-import { fromFileviewUri, isFileviewUri } from './fileviewUri';
+import { fromFileviewUri, isFileviewGitRevision, isFileviewUri } from './fileviewUri';
 import { wasScmOriginatedOpen } from './scmOpenContext';
 import { findSourceUriForSpillPath, isSpillDumpUri } from './spillRegistry';
 
@@ -11,6 +11,10 @@ function shouldAutoRevealInExplorer(): boolean {
 
 export async function revealFileviewSourceInExplorer(uri: vscode.Uri | undefined): Promise<void> {
 	if (!uri || !shouldAutoRevealInExplorer() || isActiveDiffTab() || wasScmOriginatedOpen(uri)) {
+		return;
+	}
+
+	if (isFileviewGitRevision(uri)) {
 		return;
 	}
 
