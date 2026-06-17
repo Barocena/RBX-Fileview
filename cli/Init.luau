@@ -3,7 +3,7 @@ local process = require("@lune/process")
 local Util = require("@self/util")
 local Help = require("@self/help")
 
-local VERSION = "0.0.2"
+local VERSION = "0.0.3"
 local CLI_NAME = "rbx-fileview"
 
 local Color = Util.Color
