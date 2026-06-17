@@ -1,5 +1,7 @@
 .vscode/**
 .vscode-test/**
+node_modules/**
+.npmrc
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
@@ -13,3 +15,9 @@ scripts/**
 pnpm-lock.yaml
 bin/**
 *.vsix
+*.zip
+package-output.txt
+package.json.publish-backup
+.vsix-*/**
+.vsix-check*/**
+.vsix-inspect/**

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./images/icon.png" width="128" height="128" />
+  <img src="./images/icon.png" width="128" height="128" alt="RBX-Fileview icon" />
 </p>
 
 <p align="center">

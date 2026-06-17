@@ -10,11 +10,8 @@ if (-not (Test-Path $cursorCmd)) {
 
 Push-Location $extensionDir
 try {
-	Write-Host "Compiling extension..."
-	pnpm run compile
-
 	Write-Host "Packaging VSIX..."
-	pnpm exec vsce package --no-dependencies -o rbx-fileview.vsix
+	pnpm run package-vsix
 
 	if (-not (Test-Path $vsixPath)) {
 		Write-Error "VSIX was not created at $vsixPath"

@@ -63,13 +63,9 @@ jobs:
         working-directory: ${{ env.EXTENSION_DIR }}
         run: pnpm install --frozen-lockfile
 
-      - name: Compile extension
-        working-directory: ${{ env.EXTENSION_DIR }}
-        run: pnpm run compile
-
       - name: Package VSIX
         working-directory: ${{ env.EXTENSION_DIR }}
-        run: pnpm exec vsce package --no-dependencies -o rbx-fileview.vsix
+        run: pnpm run package-vsix
 
       - name: Upload VSIX
         uses: actions/upload-artifact@v4
