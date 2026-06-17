@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import type { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
-import { fromFileviewUri, isFileviewUri, FILEVIEW_CUSTOM_EDITOR_VIEW_TYPE } from './fileviewUri';
-import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
+import { fromFileviewUri, getFileviewGitRef, isFileviewUri, FILEVIEW_CUSTOM_EDITOR_VIEW_TYPE } from './fileviewUri';
+import type { GitRef } from './gitRefDump';
+import { gitRefFromTabUri, robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
 import { findSourceUriForSpillPath, findSpillTabForSource, isSpillDumpUri } from './spillRegistry';
 import { openLargeFileInEditor } from './openRobloxFile';
 
@@ -109,7 +110,10 @@ export function findFileviewSingleTab(fileUri: vscode.Uri): vscode.Tab | undefin
 	return undefined;
 }
 
-export function findFileviewDiffTab(fileUri: vscode.Uri): vscode.Tab | undefined {
+export function findFileviewDiffTab(
+	fileUri: vscode.Uri,
+	refs?: { leftRef: GitRef; rightRef: GitRef },
+): vscode.Tab | undefined {
 	const key = robloxFileKey(fileUri);
 
 	for (const group of vscode.window.tabGroups.all) {
@@ -123,11 +127,27 @@ export function findFileviewDiffTab(fileUri: vscode.Uri): vscode.Tab | undefined
 				continue;
 			}
 
+			let matchesFile = false;
 			for (const side of [original, modified]) {
 				if (isFileviewUri(side) && robloxFileKey(fromFileviewUri(side)) === key) {
-					return tab;
+					matchesFile = true;
+					break;
 				}
 			}
+
+			if (!matchesFile) {
+				continue;
+			}
+
+			if (refs) {
+				const leftRef = gitRefFromTabUri(original);
+				const rightRef = gitRefFromTabUri(modified);
+				if (leftRef !== refs.leftRef || rightRef !== refs.rightRef) {
+					continue;
+				}
+			}
+
+			return tab;
 		}
 	}
 

@@ -2,8 +2,9 @@ import * as vscode from 'vscode';
 import { errorMessage } from './errorMessage';
 import { isInDiffContext } from './diffGuard';
 import type { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
+import type { GitRef } from './gitRefDump';
 import { isFileviewUri, isRobloxFile, normalizeRobloxFileUri } from './fileviewUri';
-import { robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
+import { gitRefFromTabUri, robloxFileKey, robloxFileUriFromTabUri } from './robloxUri';
 import {
 	closePlaceholderRobloxTabs,
 	closeTabIfPresent,
@@ -12,9 +13,9 @@ import {
 	focusTab,
 	viewColumnForTab,
 } from './robloxTabs';
-import { openFileviewDocument } from './openRobloxFile';
+import { openFileviewDocument, openFileviewDocumentAtRef } from './openRobloxFile';
 import { markScmOriginatedOpen } from './scmOpenContext';
-import { openGitChanges } from './scmDiff';
+import { openGitChanges, openGitRefsDiff } from './scmDiff';
 
 const handledFiles = new Set<string>();
 
@@ -28,14 +29,22 @@ function isFileviewDiffTab(tab: vscode.Tab): boolean {
 	return isFileviewUri(tab.input.original) || isFileviewUri(tab.input.modified);
 }
 
-function robloxFileFromDiffTab(tab: vscode.Tab): vscode.Uri | undefined {
+function robloxDiffFromTab(tab: vscode.Tab): { fileUri: vscode.Uri; leftRef: GitRef; rightRef: GitRef } | undefined {
 	if (!(tab.input instanceof vscode.TabInputTextDiff)) {
 		return undefined;
 	}
 
-	return (
-		robloxFileUriFromTabUri(tab.input.original) ?? robloxFileUriFromTabUri(tab.input.modified)
-	);
+	const { original, modified } = tab.input;
+	const fileUri = robloxFileUriFromTabUri(original) ?? robloxFileUriFromTabUri(modified);
+	if (!fileUri) {
+		return undefined;
+	}
+
+	return {
+		fileUri,
+		leftRef: gitRefFromTabUri(original),
+		rightRef: gitRefFromTabUri(modified),
+	};
 }
 
 function robloxFileFromCustomTab(tab: vscode.Tab): vscode.Uri | undefined {
@@ -48,6 +57,15 @@ function robloxFileFromCustomTab(tab: vscode.Tab): vscode.Uri | undefined {
 	}
 
 	return normalizeRobloxFileUri(tab.input.uri);
+}
+
+function routeKey(fileUri: vscode.Uri, refs?: { leftRef: GitRef; rightRef: GitRef }): string {
+	const base = robloxFileKey(fileUri);
+	if (!refs) {
+		return base;
+	}
+
+	return `${base}\0${refs.leftRef}\0${refs.rightRef}`;
 }
 
 async function sweepPlaceholderTabs(fileUri: vscode.Uri, intent: RobloxOpenIntent): Promise<void> {
@@ -71,9 +89,19 @@ async function focusExistingView(
 	fileUri: vscode.Uri,
 	intent: RobloxOpenIntent,
 	textProvider: FileviewTextDocumentProvider | undefined,
-	sourceTab?: vscode.Tab,
+	options?: {
+		sourceTab?: vscode.Tab;
+		leftRef?: GitRef;
+		rightRef?: GitRef;
+	},
 ): Promise<boolean> {
-	const existing = intent === 'scmDiff' ? findFileviewDiffTab(fileUri) : findFileviewSingleTab(fileUri);
+	const existing =
+		intent === 'scmDiff'
+			? findFileviewDiffTab(fileUri, {
+					leftRef: options?.leftRef ?? 'HEAD',
+					rightRef: options?.rightRef ?? 'WORKTREE',
+				})
+			: findFileviewSingleTab(fileUri);
 	if (!existing) {
 		return false;
 	}
@@ -84,8 +112,8 @@ async function focusExistingView(
 		custom: true,
 	});
 
-	if (sourceTab && sourceTab !== existing) {
-		await closeTabIfPresent(sourceTab);
+	if (options?.sourceTab && options.sourceTab !== existing) {
+		await closeTabIfPresent(options.sourceTab);
 	}
 
 	await focusTab(existing, textProvider);
@@ -99,18 +127,25 @@ export async function routeRobloxFileOpen(
 	options?: {
 		intent?: RobloxOpenIntent;
 		sourceTab?: vscode.Tab;
+		leftRef?: GitRef;
+		rightRef?: GitRef;
 	},
 ): Promise<void> {
 	const intent = options?.intent ?? 'explorer';
 	const normalized = normalizeRobloxFileUri(fileUri);
-	const key = robloxFileKey(normalized);
+	const leftRef = options?.leftRef;
+	const rightRef = options?.rightRef;
+	const key = routeKey(normalized, leftRef && rightRef ? { leftRef, rightRef } : undefined);
 
-	// Tab-router opens come from SCM or Explorer placeholder tabs (file:// / git://),
-	// not from rbx-fileview commands. Skip explorer reveal for these so SCM stays focused.
 	markScmOriginatedOpen(normalized);
 
-	// Always refocus an existing RBX-Fileview tab — even during the new-open debounce window.
-	if (await focusExistingView(normalized, intent, textProvider, options?.sourceTab)) {
+	if (
+		await focusExistingView(normalized, intent, textProvider, {
+			sourceTab: options?.sourceTab,
+			leftRef,
+			rightRef,
+		})
+	) {
 		return;
 	}
 
@@ -129,7 +164,12 @@ export async function routeRobloxFileOpen(
 	try {
 		await sweepPlaceholderTabs(normalized, intent);
 
-		if (intent === 'scmDiff') {
+		if (intent === 'scmDiff' && leftRef && rightRef) {
+			output.appendLine(
+				`Routing Roblox git diff to rbx-fileview: ${normalized.fsPath} (${leftRef} ↔ ${rightRef})`,
+			);
+			await openGitRefsDiff(normalized, leftRef, rightRef, output, { viewColumn });
+		} else if (intent === 'scmDiff') {
 			output.appendLine(`Routing SCM Roblox diff to rbx-fileview: ${normalized.fsPath}`);
 			await openGitChanges(normalized, output, { viewColumn });
 		} else {
@@ -160,12 +200,17 @@ export function setupRobloxTabRouter(
 					continue;
 				}
 
-				const fileUri = robloxFileFromDiffTab(tab);
-				if (!fileUri) {
+				const diff = robloxDiffFromTab(tab);
+				if (!diff) {
 					continue;
 				}
 
-				void routeRobloxFileOpen(fileUri, output, textProvider, { intent: 'scmDiff', sourceTab: tab });
+				void routeRobloxFileOpen(diff.fileUri, output, textProvider, {
+					intent: 'scmDiff',
+					sourceTab: tab,
+					leftRef: diff.leftRef,
+					rightRef: diff.rightRef,
+				});
 				continue;
 			}
 
@@ -182,6 +227,14 @@ export function setupRobloxTabRouter(
 			if (tab.input instanceof vscode.TabInputText) {
 				const fileUri = robloxFileUriFromTabUri(tab.input.uri);
 				if (!fileUri) {
+					continue;
+				}
+
+				const ref = gitRefFromTabUri(tab.input.uri);
+				if (ref !== 'WORKTREE') {
+					output.appendLine(`Routing Roblox git revision to rbx-fileview: ${fileUri.fsPath} (${ref})`);
+					void openFileviewDocumentAtRef(fileUri, ref, output, { viewColumn: viewColumnForTab(tab), preview: false }, textProvider);
+					void closeTabIfPresent(tab);
 					continue;
 				}
 

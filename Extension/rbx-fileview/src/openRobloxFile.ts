@@ -2,7 +2,8 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { errorMessage } from './errorMessage';
 import type { FileviewTextDocumentProvider } from './fileviewTextDocumentProvider';
-import { isFileviewUri, normalizeRobloxFileUri, toFileviewUri } from './fileviewUri';
+import { isFileviewUri, normalizeRobloxFileUri, toFileviewGitUri, toFileviewUri } from './fileviewUri';
+import type { GitRef } from './gitRefDump';
 import { findFileviewSingleTab, focusTab } from './robloxTabs';
 import { robloxFileKey } from './robloxUri';
 import { withOptionalDumpProgress } from './dumpCacheKey';
@@ -80,6 +81,58 @@ export async function openFileviewDocument(
 			}
 
 			const fileviewUri = toFileviewUri(normalized);
+			const document = await vscode.workspace.openTextDocument(fileviewUri);
+			await applyYamlLanguage(document);
+			await vscode.window.showTextDocument(document, { preview: false, ...showOptions });
+		} catch (error) {
+			const message = errorMessage(error);
+			output?.appendLine(`Open failed: ${message}`);
+			void vscode.window.showErrorMessage(`RBX-Fileview failed to open ${path.basename(normalized.fsPath)}: ${message}`);
+			throw error;
+		}
+	})();
+
+	openingDocuments.set(key, openTask);
+	try {
+		await openTask;
+	} finally {
+		openingDocuments.delete(key);
+	}
+}
+
+export async function openFileviewDocumentAtRef(
+	fileUri: vscode.Uri,
+	ref: GitRef,
+	output?: vscode.OutputChannel,
+	showOptions?: vscode.TextDocumentShowOptions,
+	textProvider?: FileviewTextDocumentProvider,
+): Promise<void> {
+	const normalized = normalizeRobloxFileUri(fileUri);
+	const key = `${robloxFileKey(normalized)}\0${ref}`;
+
+	const inFlight = openingDocuments.get(key);
+	if (inFlight) {
+		await inFlight;
+		return;
+	}
+
+	const openTask = (async () => {
+		output?.appendLine(`Opening RBX-Fileview document: ${normalized.fsPath} (ref=${ref})`);
+
+		try {
+			const warmed = await withOptionalDumpProgress(
+				`RBX-Fileview: dumping ${path.basename(normalized.fsPath)}`,
+				[normalized],
+				async () => textProvider?.warmCache(normalized, ref),
+			);
+
+			if (warmed?.spillPath) {
+				output?.appendLine(`Opening spilled dump: ${warmed.spillPath} (${warmed.byteLength} bytes)`);
+				await openLargeFileInEditor(vscode.Uri.file(warmed.spillPath), showOptions);
+				return;
+			}
+
+			const fileviewUri = toFileviewGitUri(normalized, ref);
 			const document = await vscode.workspace.openTextDocument(fileviewUri);
 			await applyYamlLanguage(document);
 			await vscode.window.showTextDocument(document, { preview: false, ...showOptions });

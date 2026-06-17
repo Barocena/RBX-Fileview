@@ -4,6 +4,7 @@ import { errorMessage } from '../errorMessage';
 import { isRobloxFile, ROBLOX_EXTENSIONS } from '../fileviewUri';
 import { buildDumpArgs, DEFAULT_EXCLUDED_PROPERTIES } from '../fileviewCli';
 import { isLargeDump, VSCODE_VIRTUAL_DOC_LIMIT_BYTES } from '../dumpLimits';
+import { gitRefFromGitUri, normalizeGitRef, parseGitUri } from '../robloxUri';
 
 suite('RBX-Fileview CLI helpers', () => {
 	test('buildDumpArgs includes dump target without stats', () => {
@@ -71,5 +72,34 @@ suite('Error helpers', () => {
 
 	test('errorMessage stringifies unknown values', () => {
 		assert.strictEqual(errorMessage('plain'), 'plain');
+	});
+});
+
+suite('Git URI helpers', () => {
+	test('normalizeGitRef maps VS Code git refs', () => {
+		assert.strictEqual(normalizeGitRef(undefined), 'WORKTREE');
+		assert.strictEqual(normalizeGitRef(''), 'WORKTREE');
+		assert.strictEqual(normalizeGitRef('HEAD'), 'HEAD');
+		assert.strictEqual(normalizeGitRef('~'), 'INDEX');
+		assert.strictEqual(normalizeGitRef('abc123def'), 'abc123def');
+	});
+
+	test('parseGitUri reads path and ref from JSON query', () => {
+		const uri = vscode.Uri.parse(
+			'git:/c%3A/game/Test/sample.rbxm?{"path":"c:/game/Test/sample.rbxm","ref":"abc123"}',
+		);
+		const parsed = parseGitUri(uri);
+
+		assert.ok(parsed);
+		assert.strictEqual(parsed?.path, 'c:/game/Test/sample.rbxm');
+		assert.strictEqual(parsed?.ref, 'abc123');
+	});
+
+	test('gitRefFromGitUri returns normalized ref', () => {
+		const uri = vscode.Uri.parse(
+			'git:/c%3A/game/Test/sample.rbxm?{"path":"c:/game/Test/sample.rbxm","ref":"~"}',
+		);
+
+		assert.strictEqual(gitRefFromGitUri(uri), 'INDEX');
 	});
 });

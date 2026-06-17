@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import type { GitRef } from './gitRefDump';
 
 export const FILEVIEW_SCHEME = 'rbx-fileview';
 export const FILEVIEW_CUSTOM_EDITOR_VIEW_TYPE = 'rbx-fileview.roblox';
@@ -36,7 +37,17 @@ export function fromFileviewUri(fileviewUri: vscode.Uri): vscode.Uri {
 	return fileviewUri.with({ scheme: 'file' });
 }
 
-export function getFileviewGitRef(uri: vscode.Uri): 'HEAD' | 'WORKTREE' {
+export function getFileviewGitRef(uri: vscode.Uri): GitRef {
 	const ref = new URLSearchParams(uri.query).get('ref');
-	return ref === 'HEAD' ? 'HEAD' : 'WORKTREE';
+	if (!ref || ref === 'WORKTREE') {
+		return 'WORKTREE';
+	}
+
+	return ref;
+}
+
+export function toFileviewGitUri(fileUri: vscode.Uri, ref: GitRef): vscode.Uri {
+	const params = new URLSearchParams();
+	params.set('ref', ref);
+	return toFileviewUri(fileUri).with({ query: params.toString() });
 }

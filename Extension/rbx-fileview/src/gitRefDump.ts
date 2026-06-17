@@ -7,7 +7,7 @@ import { dumpRobloxFile, type DumpResult } from './fileviewCli';
 
 const execFileAsync = promisify(execFile);
 
-export type GitRef = 'HEAD' | 'WORKTREE';
+export type GitRef = 'HEAD' | 'WORKTREE' | 'INDEX' | (string & {});
 
 async function findRepoRoot(filePath: string): Promise<string | undefined> {
 	let directory = path.dirname(filePath);
@@ -30,8 +30,16 @@ async function findRepoRoot(filePath: string): Promise<string | undefined> {
 	return undefined;
 }
 
-async function writeGitBlobToTemp(repoRoot: string, ref: string, relativePath: string): Promise<string> {
-	const { stdout } = await execFileAsync('git', ['show', `${ref}:${relativePath}`], {
+function gitShowRefSpec(ref: GitRef, relativePath: string): string {
+	if (ref === 'INDEX') {
+		return `:${relativePath}`;
+	}
+
+	return `${ref}:${relativePath}`;
+}
+
+async function writeGitBlobToTemp(repoRoot: string, ref: GitRef, relativePath: string): Promise<string> {
+	const { stdout } = await execFileAsync('git', ['show', gitShowRefSpec(ref, relativePath)], {
 		cwd: repoRoot,
 		encoding: 'buffer',
 		maxBuffer: 128 * 1024 * 1024,
@@ -42,6 +50,22 @@ async function writeGitBlobToTemp(repoRoot: string, ref: string, relativePath: s
 	const tempFile = path.join(tempDir, path.basename(relativePath));
 	await fs.writeFile(tempFile, stdout);
 	return tempFile;
+}
+
+function spillSuffixForRef(ref: GitRef): string {
+	if (ref === 'WORKTREE') {
+		return 'worktree';
+	}
+
+	if (ref === 'HEAD') {
+		return 'head';
+	}
+
+	if (ref === 'INDEX') {
+		return 'index';
+	}
+
+	return ref.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 24);
 }
 
 export async function dumpRobloxFileAtRef(
@@ -61,7 +85,10 @@ export async function dumpRobloxFileAtRef(
 	const tempFile = await writeGitBlobToTemp(repoRoot, ref, relativePath);
 
 	try {
-		return await dumpRobloxFile(tempFile, { spillLabelPath: filePath, spillSuffix: 'head' });
+		return await dumpRobloxFile(tempFile, {
+			spillLabelPath: filePath,
+			spillSuffix: spillSuffixForRef(ref),
+		});
 	} finally {
 		await fs.rm(path.dirname(tempFile), { recursive: true, force: true }).catch(() => undefined);
 	}
