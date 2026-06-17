@@ -162,7 +162,7 @@
     "resourceLabelFormatters": [
       {
         "scheme": "rbx-fileview",
-        "authority": "*",
+        "authority": "?*",
         "formatting": {
           "label": "${query.basename} (${authority})",
           "separator": "/",
